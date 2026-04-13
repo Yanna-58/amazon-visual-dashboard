@@ -321,10 +321,6 @@
     </select>
     <button class="btn-primary" onclick="exportReport()">📋 打印报告</button>
     <button class="btn-primary" onclick="exportCSV()" style="background:rgba(34,197,94,0.95);color:#fff;">📊 导出CSV</button>
-    <button class="btn-primary" onclick="exportConfig()" style="background:rgba(99,102,241,0.9);color:#fff;">📤 导出配置</button>
-    <label class="btn-primary" style="background:rgba(139,92,246,0.9);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">📥 导入配置
-      <input type="file" accept=".json" onchange="importConfig(event)" style="display:none;">
-    </label>
     <button class="btn-primary" onclick="resetAllData()" style="background:rgba(239,68,68,0.9);color:#fff;">🗑️ 重置</button>
     <button class="btn-primary" onclick="toggleDarkMode()" id="btnDarkMode" style="background:rgba(30,41,59,0.9);color:#fff;">🌙 暗色</button>
   </div>
@@ -833,7 +829,7 @@
 </div>
 
 <footer>
-  📊 亚马逊商品视觉数据看板 v3.2 | 专为跨境视觉设计师打造 | ASIN产品维度 + 设计师标签 + 趋势变化 + 环比同比分析 | 配置导出/导入 | 数据校验 | CSV导出 | 暗色模式 | 数据仅在本地处理
+  📊 亚马逊商品视觉数据看板 v3.1 | 专为跨境视觉设计师打造 | ASIN产品维度 + 设计师标签 + 趋势变化 + 环比同比分析 | 数据校验 | CSV导出 | 暗色模式 | 数据仅在本地处理
 </footer>
 
 <script>
@@ -1956,92 +1952,6 @@ function exportCSV(){let csvContent='';csvContent+='亚马逊视觉数据看板 
 function toggleDarkMode(){appState.darkMode=!appState.darkMode;document.body.classList.toggle('dark',appState.darkMode);const btn=document.getElementById('btnDarkMode');if(appState.darkMode){btn.textContent='☀️ 亮色';btn.style.background='rgba(248,250,252,0.9)';btn.style.color='#1e293b';}else{btn.textContent='🌙 暗色';btn.style.background='rgba(30,41,59,0.9)';btn.style.color='#fff';}localStorage.setItem('amazon_visual_dark',appState.darkMode?'1':'0');}
 
 function resetAllData(){if(!confirm('⚠️ 确定要清除所有数据吗？\n\n此操作不可恢复！'))return;appState.bizData=null;appState.adsData=null;appState.beforeData=null;appState.afterData=null;appState.beforeAdsData=null;appState.afterAdsData=null;appState.yoyLastBiz=null;appState.yoyLastAds=null;appState.yoyThisBiz=null;appState.yoyThisAds=null;appState.dataType=null;appState.asinMap={};appState.asinAdsMap={};appState.selectedAsins=[];appState.designerMap={};localStorage.removeItem('amazon_visual_dashboard_v3');document.getElementById('dataOverview').innerHTML='<div style="text-align:center;padding:30px;color:#94a3b8;"><div style="font-size:40px;margin-bottom:8px;">📭</div><p>暂无数据导入</p></div>';['kpiSessions','kpiCVR','kpiPV','kpiSales','kpiImpressions','kpiCTR','kpiACOS','kpiSpend','kpiCPC'].forEach(id=>{document.getElementById(id).textContent='—';});['kpiSessionsChange','kpiCVRChange','kpiPVChange','kpiSalesChange'].forEach(id=>{const el=document.getElementById(id);el.textContent='导入数据后显示';el.className='change flat';});document.getElementById('visualDiagnosis').innerHTML='<div class="diagnosis info"><strong>⏳ 等待数据导入</strong></div>';document.getElementById('matrixPosition').innerHTML='导入数据后显示';['qoqCTR','qoqCVR','qoqVol','qoqSpend','qoqCPC'].forEach(id=>{document.getElementById(id).textContent='—';});['qoqCTRChange','qoqCVRChange','qoqVolChange','qoqSpendChange','qoqCPCChange'].forEach(id=>{const el=document.getElementById(id);el.textContent='—';el.className='qoq-change flat';});document.getElementById('compareResults').style.display='block';document.getElementById('compareKPIs').style.display='none';Object.keys(appState.charts).forEach(key=>{if(appState.charts[key])appState.charts[key].destroy();});appState.charts={};updateProductSelector();renderBenchmarks();alert('✅ 所有数据已清除');}
-
-// ========== v3.2 配置导出/导入 ==========
-function exportConfig() {
-  const config = {
-    version: '3.2',
-    exportTime: new Date().toISOString(),
-    exportedBy: 'Yanna',
-    designerMap: appState.designerMap || {},
-    site: appState.site || 'US',
-    selectedAsins: appState.selectedAsins || [],
-    asinInfo: {}
-  };
-  if (Object.keys(appState.asinMap).length > 0) {
-    Object.entries(appState.asinMap).forEach(([asin, info]) => {
-      config.asinInfo[asin] = { title: info.title || '', designer: appState.designerMap[asin] || '' };
-    });
-  }
-  const jsonStr = JSON.stringify(config, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const dateStr = new Date().toISOString().slice(0,10);
-  a.download = '亚马逊看板配置_' + dateStr + '.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  alert('✅ 配置导出成功！\n\n包含内容：\n• 设计师标签：' + Object.keys(config.designerMap).length + ' 个\n• ASIN 信息：' + Object.keys(config.asinInfo).length + ' 个\n\n文件名：亚马逊看板配置_' + dateStr + '.json');
-}
-
-function importConfig(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  if (!file.name.endsWith('.json')) {
-    alert('❌ 请选择 .json 格式的配置文件');
-    event.target.value = '';
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      var config = JSON.parse(e.target.result);
-      if (!config.version && !config.designerMap) {
-        alert('❌ 不是有效的看板配置文件');
-        event.target.value = '';
-        return;
-      }
-      var importedCount = 0;
-      if (config.designerMap && typeof config.designerMap === 'object') {
-        Object.assign(appState.designerMap, config.designerMap);
-        importedCount += Object.keys(config.designerMap).length;
-      }
-      if (config.site) {
-        appState.site = config.site;
-        var siteSelect = document.getElementById('siteSelect');
-        if (siteSelect) siteSelect.value = config.site;
-      }
-      if (config.selectedAsins && Array.isArray(config.selectedAsins)) {
-        appState.selectedAsins = config.selectedAsins;
-      }
-      if (config.asinInfo && Object.keys(config.asinInfo).length > 0
-          && Object.keys(appState.asinMap).length === 0) {
-        Object.entries(config.asinInfo).forEach(function(pair) {
-          var asin = pair[0], info = pair[1];
-          if (!appState.asinMap[asin]) appState.asinMap[asin] = { asin: asin, title: info.title || '', rows: [] };
-          if (info.designer && !appState.designerMap[asin]) appState.designerMap[asin] = info.designer;
-          if (!appState.selectedAsins.includes(asin)) appState.selectedAsins.push(asin);
-        });
-        appState.dataType = 'byAsin';
-        updateProductSelector();
-        renderProductOverview();
-      } else if (Object.keys(appState.asinMap).length > 0) {
-        renderProductOverview();
-        updateProductSelector();
-      }
-      saveToStorage();
-      var sourceName = config.exportedBy || '未知来源';
-      alert('✅ 配置导入成功！\n\n来自：' + sourceName + '\n导入内容：\n• 设计师标签：' + importedCount + ' 条\n• 配置已自动保存\n\n💡 提示：如需看到完整的ASIN产品列表，仍需上传业务报告数据。');
-    } catch(err) {
-      alert('❌ 配置文件解析失败：' + err.message);
-    }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
-}
 </script>
 
 </body>
