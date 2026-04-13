@@ -1,0 +1,27 @@
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Screenshots & test files (not part of the tool)
+*.png
+*.jpg
+*.jpeg
+*.txt
+!README.md
+!LICENSE
+!.gitignore
+!导入模板说明.md
+
+# Memory files
+.workbuddy/
+
+# Temporary files
+*.tmp
+*.temp
