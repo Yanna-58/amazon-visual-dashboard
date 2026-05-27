@@ -1,0 +1,1958 @@
+<!--
+  亚马逊视觉数据看板 | Amazon Visual Dashboard
+  Creator: Yanna
+  Created: 2026-04-11
+  Version: 3.1
+  License: MIT (署名保留)
+  GitHub: https://github.com/Yanna-58/amazon-visual-dashboard
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>亚马逊商品视觉数据看板 — Visual Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+    --radius: 12px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+
+  /* 顶部导航 */
+  .topbar {
+    background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);
+    color:#fff; padding:16px 24px; display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(79,70,229,0.3);
+  }
+  .topbar h1 { font-size:20px; font-weight:700; letter-spacing:0.5px; }
+  .topbar h1 span { font-size:13px; opacity:0.8; font-weight:400; margin-left:8px; }
+  .topbar-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .topbar-actions select, .topbar-actions button {
+    padding:8px 16px; border-radius:8px; border:none; font-size:13px; cursor:pointer;
+  }
+  .topbar-actions select { background:rgba(255,255,255,0.2); color:#fff; }
+  .topbar-actions select option { color:#333; }
+  .btn-primary {
+    background:rgba(255,255,255,0.95); color:var(--primary); font-weight:600;
+    transition:all 0.2s;
+  }
+  .btn-primary:hover { background:#fff; transform:translateY(-1px); }
+
+  /* 产品选择器 */
+  .product-selector {
+    background:var(--card); border-bottom:1px solid var(--border); padding:12px 24px;
+    display:none; align-items:center; gap:12px; position:sticky; top:60px; z-index:99;
+    box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  }
+  .product-selector.visible { display:flex; flex-wrap:wrap; }
+  .product-selector label { font-size:13px; font-weight:600; color:var(--text-secondary); white-space:nowrap; }
+  .product-selector select, .product-selector input {
+    padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:13px;
+    background:var(--bg);
+  }
+  .product-selector select { min-width:200px; }
+  .designer-tag {
+    display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px;
+    font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;
+  }
+  .designer-tag:hover { transform:scale(1.05); }
+
+  /* 标签页 */
+  .tabs {
+    background:var(--card); border-bottom:1px solid var(--border); padding:0 24px;
+    display:flex; gap:0; position:sticky; top:60px; z-index:99;
+  }
+  .tabs.has-selector { top:104px; }
+  .tab {
+    padding:14px 24px; font-size:14px; font-weight:500; color:var(--text-secondary);
+    cursor:pointer; border-bottom:3px solid transparent; transition:all 0.2s;
+    display:flex; align-items:center; gap:6px;
+  }
+  .tab:hover { color:var(--primary); background:rgba(99,102,241,0.04); }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:600; }
+
+  /* 内容区 */
+  .page { display:none; padding:24px; max-width:1400px; margin:0 auto; }
+  .page.active { display:block; }
+  .grid { display:grid; gap:20px; }
+  .grid-2 { grid-template-columns:repeat(2,1fr); }
+  .grid-3 { grid-template-columns:repeat(3,1fr); }
+  .grid-4 { grid-template-columns:repeat(4,1fr); }
+  .grid-5 { grid-template-columns:repeat(5,1fr); }
+  @media(max-width:1024px) { .grid-2,.grid-3,.grid-4,.grid-5 { grid-template-columns:1fr 1fr; } }
+  @media(max-width:640px) { .grid-2,.grid-3,.grid-4,.grid-5 { grid-template-columns:1fr; } }
+
+  .card {
+    background:var(--card); border-radius:var(--radius); padding:24px;
+    box-shadow:var(--shadow); border:1px solid var(--border);
+  }
+  .card h3 {
+    font-size:14px; font-weight:600; color:var(--text-secondary);
+    text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h3 .icon { font-size:18px; }
+
+  /* KPI 卡片 */
+  .kpi { text-align:center; padding:20px; }
+  .kpi .value { font-size:36px; font-weight:800; line-height:1.2; }
+  .kpi .label { font-size:13px; color:var(--text-secondary); margin-top:4px; }
+  .kpi .change { font-size:13px; font-weight:600; margin-top:8px; display:inline-flex; align-items:center; gap:3px; padding:3px 10px; border-radius:20px; }
+  .kpi .change.up { background:#dcfce7; color:#16a34a; }
+  .kpi .change.down { background:#fef2f2; color:#dc2626; }
+  .kpi .change.flat { background:#f1f5f9; color:#64748b; }
+
+  /* 环比卡片 */
+  .qoq-card {
+    background:var(--card); border-radius:var(--radius); padding:20px;
+    box-shadow:var(--shadow); border:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    position:relative; overflow:hidden;
+  }
+  .qoq-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:4px;
+  }
+  .qoq-card.ctr::before { background:linear-gradient(90deg,#3b82f6,#60a5fa); }
+  .qoq-card.cvr::before { background:linear-gradient(90deg,#22c55e,#4ade80); }
+  .qoq-card.vol::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+  .qoq-card.spend::before { background:linear-gradient(90deg,#ef4444,#f87171); }
+  .qoq-card.cpc::before { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+  .qoq-card .qoq-label { font-size:13px; color:var(--text-secondary); font-weight:500; margin-bottom:8px; }
+  .qoq-card .qoq-icon { font-size:24px; margin-bottom:6px; }
+  .qoq-card .qoq-value { font-size:32px; font-weight:800; line-height:1.2; }
+  .qoq-card .qoq-change {
+    font-size:14px; font-weight:700; margin-top:10px;
+    display:inline-flex; align-items:center; gap:4px; padding:4px 14px; border-radius:20px;
+  }
+  .qoq-card .qoq-change.up { background:#dcfce7; color:#16a34a; }
+  .qoq-card .qoq-change.down { background:#fef2f2; color:#dc2626; }
+  .qoq-card .qoq-change.flat { background:#f1f5f9; color:#64748b; }
+  .qoq-card .qoq-detail { font-size:11px; color:#94a3b8; margin-top:8px; line-height:1.5; text-align:center; }
+  .qoq-card .qoq-visual-tag {
+    margin-top:8px; font-size:11px; padding:2px 8px; border-radius:4px;
+    background:rgba(99,102,241,0.1); color:var(--primary); font-weight:500;
+  }
+
+  /* 诊断卡片 */
+  .diagnosis {
+    border-radius:10px; padding:16px 20px; margin-top:12px; font-size:14px; line-height:1.8;
+  }
+  .diagnosis.good { background:#f0fdf4; border-left:4px solid #22c55e; }
+  .diagnosis.warn { background:#fffbeb; border-left:4px solid #f59e0b; }
+  .diagnosis.bad { background:#fef2f2; border-left:4px solid #ef4444; }
+  .diagnosis.info { background:#eff6ff; border-left:4px solid #3b82f6; }
+  .diagnosis strong { display:block; margin-bottom:4px; }
+
+  /* 上传区域 */
+  .upload-zone {
+    border:2px dashed var(--border); border-radius:var(--radius); padding:48px 24px;
+    text-align:center; cursor:pointer; transition:all 0.3s; background:var(--bg);
+  }
+  .upload-zone:hover { border-color:var(--primary); background:rgba(99,102,241,0.04); }
+  .upload-zone .upload-icon { font-size:48px; margin-bottom:12px; }
+  .upload-zone p { color:var(--text-secondary); font-size:14px; }
+  .upload-zone .hint { font-size:12px; color:#94a3b8; margin-top:8px; }
+
+  /* 数据表格 */
+  .data-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; }
+  .data-table th { background:#f8fafc; padding:10px 12px; text-align:left; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; }
+  .data-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+  .data-table tr:hover { background:rgba(99,102,241,0.03); }
+  .data-table .highlight { font-weight:700; color:var(--primary); }
+  .data-table .positive { color:#16a34a; font-weight:600; }
+  .data-table .negative { color:#dc2626; font-weight:600; }
+
+  /* 产品总览表格 */
+  .product-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .product-table th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); font-size:12px; cursor:pointer; user-select:none; white-space:nowrap; }
+  .product-table th:hover { color:var(--primary); }
+  .product-table td { padding:12px 14px; border-bottom:1px solid var(--border); }
+  .product-table tr:hover { background:rgba(99,102,241,0.04); cursor:pointer; }
+  .product-table tr.selected { background:rgba(99,102,241,0.1); }
+  .health-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  .health-dot.good { background:#22c55e; }
+  .health-dot.warn { background:#f59e0b; }
+  .health-dot.bad { background:#ef4444; }
+  .asin-cell { font-family:monospace; font-size:12px; color:var(--primary); font-weight:600; }
+  .title-cell { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+
+  /* 对比卡片 */
+  .compare-header {
+    display:flex; justify-content:space-between; align-items:center; padding:16px 20px;
+    background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%); border-radius:10px; margin-bottom:20px;
+  }
+  .compare-header .period { font-size:13px; color:var(--text-secondary); }
+  .compare-header .period strong { color:var(--text); font-size:15px; }
+  .vs-badge {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:40px; height:40px; border-radius:50%; background:var(--primary);
+    color:#fff; font-weight:800; font-size:14px;
+  }
+
+  /* 视觉诊断矩阵 */
+  .matrix-cell {
+    border-radius:8px; padding:12px; text-align:center; font-size:13px; font-weight:500;
+  }
+  .matrix-cell.high-ctr-high-cvr { background:#dcfce7; color:#166534; }
+  .matrix-cell.high-ctr-low-cvr { background:#fef9c3; color:#854d0e; }
+  .matrix-cell.low-ctr-high-cvr { background:#dbeafe; color:#1e40af; }
+  .matrix-cell.low-ctr-low-cvr { background:#fef2f2; color:#991b1b; }
+
+  /* 指南页 */
+  .guide-step {
+    display:flex; gap:16px; padding:20px; background:var(--bg); border-radius:10px; margin-bottom:12px;
+  }
+  .guide-step .step-num {
+    width:36px; height:36px; border-radius:50%; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;
+  }
+  .guide-step .step-content h4 { font-size:15px; margin-bottom:4px; }
+  .guide-step .step-content p { font-size:13px; color:var(--text-secondary); }
+
+  .field-tag {
+    display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:500;
+    margin:2px; background:rgba(99,102,241,0.1); color:var(--primary);
+  }
+  .field-tag.visual { background:rgba(239,68,68,0.1); color:#dc2626; }
+
+  /* 环比解读卡片 */
+  .qoq-interpret {
+    background:linear-gradient(135deg,#faf5ff 0%,#f5f3ff 100%);
+    border:1px solid #e9d5ff; border-radius:10px; padding:20px; margin-top:16px;
+  }
+  .qoq-interpret h4 { color:#7c3aed; font-size:14px; margin-bottom:12px; }
+  .qoq-interpret p { font-size:13px; line-height:1.8; color:#4c1d95; }
+
+  /* 数据类型标签 */
+  .data-type-badge {
+    display:inline-flex; align-items:center; gap:4px; padding:4px 12px; border-radius:20px;
+    font-size:12px; font-weight:600;
+  }
+  .data-type-badge.by-date { background:#dbeafe; color:#1e40af; }
+  .data-type-badge.by-asin { background:#dcfce7; color:#166534; }
+
+  /* 产品对比区 */
+  .compare-grid {
+    display:grid; gap:16px;
+  }
+  .compare-grid.cols-2 { grid-template-columns:repeat(2,1fr); }
+  .compare-grid.cols-3 { grid-template-columns:repeat(3,1fr); }
+  .compare-grid.cols-4 { grid-template-columns:repeat(4,1fr); }
+  .compare-grid.cols-5 { grid-template-columns:repeat(5,1fr); }
+
+  footer {
+    text-align:center; padding:30px; color:#94a3b8; font-size:12px;
+    border-top:1px solid var(--border); margin-top:40px;
+  }
+
+  /* 打印样式 */
+  @media print {
+    .topbar, .tabs, .topbar-actions, button, select, .upload-zone,
+    #btnQoqMode, #btnYoyMode, #btnQoqDemo, .product-selector { display: none !important; }
+    .page { display: block !important; padding: 10px !important; }
+    .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+    body { background: #fff !important; }
+    footer { font-size: 10px; }
+    canvas { max-height: 300px !important; }
+  }
+
+  /* 暗色模式 */
+  body.dark {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-lg: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  body.dark .data-table th, body.dark .product-table th { background: #1e293b; color: #94a3b8; border-bottom-color: #475569; }
+  body.dark .data-table td, body.dark .product-table td { border-bottom-color: #334155; }
+  body.dark .upload-zone { background: #1e293b; border-color: #475569; }
+  body.dark .kpi .change.up { background: rgba(34,197,94,0.2); }
+  body.dark .kpi .change.down { background: rgba(239,68,68,0.2); }
+  body.dark .qoq-card { background: #1e293b; }
+  body.dark .diagnosis.good { background: rgba(34,197,94,0.15); }
+  body.dark .diagnosis.warn { background: rgba(245,158,11,0.15); }
+  body.dark .diagnosis.bad { background: rgba(239,68,68,0.15); }
+  body.dark .diagnosis.info { background: rgba(59,130,246,0.15); }
+  body.dark .qoq-interpret { background: rgba(124,58,237,0.15); border-color: #4c1d95; }
+  body.dark .guide-step { background: #1e293b; }
+  body.dark .field-tag { background: rgba(99,102,241,0.2); }
+  body.dark .field-tag.visual { background: rgba(239,68,68,0.2); }
+  body.dark .data-type-badge.by-date { background: rgba(59,130,246,0.2); color: #93c5fd; }
+  body.dark .data-type-badge.by-asin { background: rgba(34,197,94,0.2); color: #86efac; }
+  body.dark .product-selector { background: #1e293b; border-color: #334155; }
+  body.dark .product-selector select, body.dark .product-selector input { background: #0f172a; border-color: #475569; color: #e2e8f0; }
+  body.dark .product-table tr.selected { background: rgba(99,102,241,0.2); }
+</style>
+</head>
+<body>
+
+<!-- ===== 顶部导航 ===== -->
+<div class="topbar">
+  <h1>📊 亚马逊视觉数据看板<span>Visual Performance Dashboard v3.1</span></h1>
+  <div class="topbar-actions">
+    <select id="siteSelect" onchange="switchSite()">
+      <option value="us">🇺🇸 美国站</option>
+      <option value="uk">🇬🇧 欧洲站</option>
+      <option value="jp">🇯🇵 日本站</option>
+    </select>
+    <select id="periodSelect" onchange="switchPeriod()">
+      <option value="7">近7天</option>
+      <option value="14">近14天</option>
+      <option value="30" selected>近30天</option>
+      <option value="90">近90天</option>
+    </select>
+    <button class="btn-primary" onclick="exportReport()">📋 打印报告</button>
+    <button class="btn-primary" onclick="exportCSV()" style="background:rgba(34,197,94,0.95);color:#fff;">📊 导出CSV</button>
+    <button class="btn-primary" onclick="resetAllData()" style="background:rgba(239,68,68,0.9);color:#fff;">🗑️ 重置</button>
+    <button class="btn-primary" onclick="toggleDarkMode()" id="btnDarkMode" style="background:rgba(30,41,59,0.9);color:#fff;">🌙 暗色</button>
+  </div>
+</div>
+
+<!-- ===== 产品选择器（有ASIN数据时显示） ===== -->
+<div class="product-selector" id="productSelector">
+  <label>📦 产品筛选：</label>
+  <select id="asinFilter" onchange="onAsinFilterChange()">
+    <option value="__all__">全部产品</option>
+  </select>
+  <label>👤 设计师：</label>
+  <select id="designerFilter" onchange="onDesignerFilterChange()">
+    <option value="__all__">全部设计师</option>
+  </select>
+  <div id="designerTags" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  <span id="asinCountBadge" style="font-size:12px;color:var(--text-secondary);"></span>
+</div>
+
+<!-- ===== 标签页 ===== -->
+<div class="tabs" id="tabsBar">
+  <div class="tab active" onclick="switchTab('upload')">📤 数据导入</div>
+  <div class="tab" onclick="switchTab('products')">🏷️ 产品总览</div>
+  <div class="tab" onclick="switchTab('dashboard')">📊 新品追踪</div>
+  <div class="tab" onclick="switchTab('qoq')">📈 环比分析</div>
+  <div class="tab" onclick="switchTab('compare')">⚡ 优化对比</div>
+  <div class="tab" onclick="switchTab('guide')">📖 使用指南</div>
+</div>
+
+<!-- ===== 页面1: 数据导入 ===== -->
+<div id="page-upload" class="page active">
+  <div class="grid grid-2">
+    <div>
+      <div class="card">
+        <h3><span class="icon">📁</span> 导入 Business Reports 数据</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+          从亚马逊卖家后台 → 数据报告 → 业务报告 → 下载 CSV 文件后上传<br>
+          <strong style="color:var(--primary);">✨ v3.1 新增：自动识别"按日期"和"按ASIN"报告，按ASIN分组展示 + 趋势变化 + 数据校验</strong>
+        </p>
+        <div class="upload-zone" id="uploadBiz" onclick="document.getElementById('fileBiz').click()">
+          <div class="upload-icon">📄</div>
+          <p><strong>点击上传 Business Report CSV</strong></p>
+          <p class="hint">支持"按日期"和"按ASIN"两种报告 | .csv 格式 | 最大 10MB</p>
+        </div>
+        <input type="file" id="fileBiz" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'business')">
+
+        <div style="margin-top:16px;">
+          <h4 style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">系统自动识别的关键字段：</h4>
+          <div>
+            <span class="field-tag visual">Sessions 会话数</span>
+            <span class="field-tag visual">Page Views 页面浏览量</span>
+            <span class="field-tag visual">Unit Session % 转化率</span>
+            <span class="field-tag">ASIN / Parent ASIN</span>
+            <span class="field-tag">Buy Box % 购物车获得率</span>
+            <span class="field-tag">Units Ordered 订购数</span>
+            <span class="field-tag">Ordered Product Sales 销售额</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <h3><span class="icon">📢</span> 导入广告报表数据</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+          从亚马逊卖家后台 → 广告 → 广告报表 → 下载搜索词/投放报告
+        </p>
+        <div class="upload-zone" id="uploadAds" onclick="document.getElementById('fileAds').click()">
+          <div class="upload-icon">📈</div>
+          <p><strong>点击上传广告报表 CSV</strong></p>
+          <p class="hint">搜索词报告 / 推广商品报告 | .csv 格式</p>
+        </div>
+        <input type="file" id="fileAds" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'ads')">
+
+        <div style="margin-top:16px;">
+          <h4 style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">广告视觉关键字段：</h4>
+          <div>
+            <span class="field-tag visual">Impressions 曝光量</span>
+            <span class="field-tag visual">Clicks 点击数</span>
+            <span class="field-tag visual">CTR 点击率</span>
+            <span class="field-tag visual">CPC 每次点击花费</span>
+            <span class="field-tag visual">Spend 广告花费</span>
+            <span class="field-tag visual">ACOS 广告成本销售比</span>
+            <span class="field-tag">Sales 广告销售额</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3><span class="icon">🧪</span> 试用演示数据</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+          不想手动导入？点击下方按钮加载模拟数据，快速体验看板功能
+        </p>
+        <button onclick="loadDemoData('new')" style="width:100%;padding:14px;border-radius:10px;border:2px solid var(--primary);background:rgba(99,102,241,0.06);color:var(--primary);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:10px;">
+          🆕 加载新品演示数据（按日期 + 按ASIN + 环比分析）
+        </button>
+        <button onclick="loadDemoData('compare')" style="width:100%;padding:14px;border-radius:10px;border:2px solid #7c3aed;background:rgba(124,58,237,0.06);color:#7c3aed;font-weight:600;font-size:14px;cursor:pointer;">
+          ⚡ 加载优化对比演示数据（优化前后对比 + 环比）
+        </button>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <h3><span class="icon">📋</span> 已导入数据概览</h3>
+        <div id="dataOverview">
+          <div style="text-align:center;padding:30px;color:#94a3b8;">
+            <div style="font-size:40px;margin-bottom:8px;">📭</div>
+            <p>暂无数据导入</p>
+            <p style="font-size:12px;">上传 CSV 文件或加载演示数据开始使用</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <h3><span class="icon">💡</span> 视觉设计师为什么要看这些数据？</h3>
+        <table class="data-table">
+          <tr><th>数据指标</th><th>视觉含义</th><th>优化方向</th></tr>
+          <tr><td class="highlight">CTR 点击率低</td><td>主图不够吸引人</td><td>优化主图构图/颜色/卖点</td></tr>
+          <tr><td class="highlight">转化率低</td><td>详情页说服力不足</td><td>优化副图/A+页面/场景图</td></tr>
+          <tr><td>CTR环比下降</td><td>竞品主图在进步</td><td>更新主图保持差异化</td></tr>
+          <tr><td>CPC环比上升</td><td>竞争加剧/广告效率降低</td><td>检查广告图素材是否过时</td></tr>
+          <tr><td>广告花费环比增加</td><td>买同样的流量更贵了</td><td>优化CTR降低单次点击成本</td></tr>
+          <tr><td>浏览量高但会话少</td><td>重复点击多（主图吸引但留不住）</td><td>提升整体视觉一致性</td></tr>
+          <tr><td>广告曝光高点击少</td><td>广告图/搜索缩略图不突出</td><td>优化搜索结果中的视觉差异</td></tr>
+          <tr><td>ACOS 偏高</td><td>广告花费高但转化差</td><td>检查落地页视觉和卖点传达</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 页面2: 产品总览 ===== -->
+<div id="page-products" class="page">
+  <div style="margin-bottom:20px;">
+    <h2 style="font-size:20px;font-weight:700;">🏷️ 产品总览</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">按 ASIN 维度查看每个产品的视觉表现 | 点击产品行查看详情 | 按设计师筛选</p>
+  </div>
+
+  <div id="productsContent">
+    <div class="card" style="text-align:center;padding:40px;color:#94a3b8;">
+      <div style="font-size:40px;margin-bottom:8px;">📦</div>
+      <p>暂无产品数据</p>
+      <p style="font-size:12px;">请先上传"按ASIN"维度的 Business Report，或加载演示数据</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 页面3: 新品追踪 ===== -->
+<div id="page-dashboard" class="page">
+  <!-- KPI 概览 -->
+  <div class="grid grid-4">
+    <div class="card kpi">
+      <div class="label">📊 会话数 Sessions</div>
+      <div class="value" id="kpiSessions" style="color:var(--info);">—</div>
+      <div class="change flat" id="kpiSessionsChange">导入数据后显示</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">👁️ 转化率 CVR</div>
+      <div class="value" id="kpiCVR" style="color:var(--success);">—</div>
+      <div class="change flat" id="kpiCVRChange">导入数据后显示</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">🖱️ 页面浏览量 Page Views</div>
+      <div class="value" id="kpiPV" style="color:var(--warning);">—</div>
+      <div class="change flat" id="kpiPVChange">导入数据后显示</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">💰 销售额 Sales</div>
+      <div class="value" id="kpiSales" style="color:var(--primary);">—</div>
+      <div class="change flat" id="kpiSalesChange">导入数据后显示</div>
+    </div>
+  </div>
+
+  <!-- 趋势图 -->
+  <div class="grid grid-2" style="margin-top:20px;">
+    <div class="card">
+      <h3><span class="icon">📈</span> 会话数 & 转化率趋势</h3>
+      <canvas id="chartSessionsCVR" height="260"></canvas>
+    </div>
+    <div class="card">
+      <h3><span class="icon">📊</span> 页面浏览量 & 订购数趋势</h3>
+      <canvas id="chartPvOrders" height="260"></canvas>
+    </div>
+  </div>
+
+  <!-- 视觉诊断 -->
+  <div class="grid grid-2" style="margin-top:20px;">
+    <div class="card">
+      <h3><span class="icon">🔍</span> 视觉健康诊断</h3>
+      <div id="visualDiagnosis">
+        <div class="diagnosis info">
+          <strong>⏳ 等待数据导入</strong>
+          导入 Business Report 数据后，系统将自动分析视觉相关指标并给出诊断建议
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="icon">🎯</span> 点击率-转化率矩阵</h3>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">根据流量和转化表现，判断视觉优化优先级</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="matrix-cell high-ctr-high-cvr">
+          <div style="font-weight:700;">🟢 表现优秀</div>
+          <div style="font-size:11px;margin-top:4px;">高CTR + 高CVR<br>视觉已到位，保持即可</div>
+        </div>
+        <div class="matrix-cell high-ctr-low-cvr">
+          <div style="font-weight:700;">🟡 主图OK·详情差</div>
+          <div style="font-size:11px;margin-top:4px;">高CTR + 低CVR<br>重点优化副图和A+页面</div>
+        </div>
+        <div class="matrix-cell low-ctr-high-cvr">
+          <div style="font-weight:700;">🔵 主图待优化</div>
+          <div style="font-size:11px;margin-top:4px;">低CTR + 高CVR<br>主图不够吸引，详情OK</div>
+        </div>
+        <div class="matrix-cell low-ctr-low-cvr">
+          <div style="font-weight:700;">🔴 全面优化</div>
+          <div style="font-size:11px;margin-top:4px;">低CTR + 低CVR<br>主图+详情页都需要重做</div>
+        </div>
+      </div>
+      <div id="matrixPosition" style="text-align:center;margin-top:12px;font-size:13px;color:var(--text-secondary);">
+        导入数据后显示您的产品位置
+      </div>
+    </div>
+  </div>
+
+  <!-- 广告视觉数据 -->
+  <div class="card" style="margin-top:20px;">
+    <h3><span class="icon">📢</span> 广告视觉表现（如有广告数据）</h3>
+    <div class="grid grid-5">
+      <div class="kpi" style="padding:10px;">
+        <div class="label">曝光量</div>
+        <div class="value" id="kpiImpressions" style="font-size:24px;color:var(--info);">—</div>
+      </div>
+      <div class="kpi" style="padding:10px;">
+        <div class="label">点击率 CTR</div>
+        <div class="value" id="kpiCTR" style="font-size:24px;color:var(--warning);">—</div>
+      </div>
+      <div class="kpi" style="padding:10px;">
+        <div class="label">ACOS</div>
+        <div class="value" id="kpiACOS" style="font-size:24px;color:var(--danger);">—</div>
+      </div>
+      <div class="kpi" style="padding:10px;">
+        <div class="label">广告花费</div>
+        <div class="value" id="kpiSpend" style="font-size:24px;color:var(--text-secondary);">—</div>
+      </div>
+      <div class="kpi" style="padding:10px;">
+        <div class="label">CPC</div>
+        <div class="value" id="kpiCPC" style="font-size:24px;color:#8b5cf6;">—</div>
+      </div>
+    </div>
+    <canvas id="chartAds" height="200" style="margin-top:16px;"></canvas>
+  </div>
+
+  <!-- 品类基准参考值 -->
+  <div class="card" style="margin-top:20px;">
+    <h3><span class="icon">📏</span> 品类基准参考值（服装类目 <span id="benchSiteLabel">美国站</span>）</h3>
+    <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">基于亚马逊服装类目平均数据，仅供参考。绿色=优于基准，红色=低于基准</p>
+    <div id="benchmarkCards" class="grid grid-5">
+    </div>
+  </div>
+</div>
+
+<!-- ===== 页面4: 环比/同比分析 ===== -->
+<div id="page-qoq" class="page">
+  <div style="margin-bottom:20px;">
+    <h2 style="font-size:20px;font-weight:700;">📈 环比 & 同比分析</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">环比看短期趋势 | 同比排除季节性看长期健康度 — 老品必看同比！</p>
+  </div>
+
+  <!-- 切换模式 -->
+  <div style="display:flex;gap:12px;margin-bottom:20px;">
+    <button id="btnQoqMode" onclick="switchQoqMode('qoq')" style="padding:10px 24px;border-radius:10px;border:2px solid var(--primary);background:var(--primary);color:#fff;font-weight:600;font-size:14px;cursor:pointer;">
+      📊 环比（本月 vs 上月）
+    </button>
+    <button id="btnYoyMode" onclick="switchQoqMode('yoy')" style="padding:10px 24px;border-radius:10px;border:2px solid var(--primary);background:rgba(99,102,241,0.06);color:var(--primary);font-weight:600;font-size:14px;cursor:pointer;">
+      📅 同比（今年 vs 去年同月）
+    </button>
+    <button id="btnQoqDemo" onclick="loadQoqDemo()" style="padding:10px 24px;border-radius:10px;border:2px solid #22c55e;background:rgba(34,197,94,0.06);color:#22c55e;font-weight:600;font-size:14px;cursor:pointer;">
+      🧪 加载同比演示数据
+    </button>
+  </div>
+
+  <!-- 同比说明区 -->
+  <div id="yoyExplanation" style="display:none;margin-bottom:20px;">
+    <div class="qoq-interpret">
+      <h4>📅 为什么老品要看同比？</h4>
+      <p>
+        <strong>环比的局限：</strong>3月 vs 2月，服装行业2月是淡季3月是旺季，环比涨了不一定是图片好，可能只是季节到了<br>
+        <strong>同比的优势：</strong>今年3月 vs 去年3月，同样季节、同样需求，差异就是真正的视觉竞争力变化<br>
+        <strong>使用方法：</strong>分别上传去年同月和今年同月的 Business Report CSV + 广告报表 CSV，系统自动计算同比差异<br>
+        <strong>视觉意义：</strong>同比CTR上升 = 一年来主图在进步；同比CVR下降 = 详情页没有跟上竞品节奏
+      </p>
+    </div>
+  </div>
+
+  <!-- 同比数据上传区 -->
+  <div id="yoyUpload" style="display:none;margin-bottom:20px;">
+    <div class="card">
+      <h3><span class="icon">📤</span> 同比数据上传（今年 vs 去年同月）</h3>
+      <div class="grid grid-2" style="margin-top:16px;">
+        <div>
+          <h4 style="font-size:13px;margin-bottom:8px;color:#3b82f6;">🔵 去年同月</h4>
+          <div class="upload-zone" style="padding:20px;" onclick="document.getElementById('fileYoyLastBiz').click()">
+            <p style="font-size:13px;"><strong>📄 上传去年 Business Report</strong></p>
+            <p class="hint">去年同月的业务报告 CSV</p>
+          </div>
+          <input type="file" id="fileYoyLastBiz" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'yoyLastBiz')">
+          <div class="upload-zone" style="padding:20px;margin-top:10px;" onclick="document.getElementById('fileYoyLastAds').click()">
+            <p style="font-size:13px;"><strong>📈 上传去年广告报表</strong></p>
+            <p class="hint">去年同月的广告报表 CSV</p>
+          </div>
+          <input type="file" id="fileYoyLastAds" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'yoyLastAds')">
+        </div>
+        <div>
+          <h4 style="font-size:13px;margin-bottom:8px;color:#22c55e;">🟢 今年同月</h4>
+          <div class="upload-zone" style="padding:20px;" onclick="document.getElementById('fileYoyThisBiz').click()">
+            <p style="font-size:13px;"><strong>📄 上传今年 Business Report</strong></p>
+            <p class="hint">今年同月的业务报告 CSV</p>
+          </div>
+          <input type="file" id="fileYoyThisBiz" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'yoyThisBiz')">
+          <div class="upload-zone" style="padding:20px;margin-top:10px;" onclick="document.getElementById('fileYoyThisAds').click()">
+            <p style="font-size:13px;"><strong>📈 上传今年广告报表</strong></p>
+            <p class="hint">今年同月的广告报表 CSV</p>
+          </div>
+          <input type="file" id="fileYoyThisAds" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'yoyThisAds')">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 同比上传状态提示 -->
+  <div id="yoyStatus" style="display:none;margin-bottom:20px;">
+    <div class="card" style="padding:16px;">
+      <h3 style="font-size:14px;margin-bottom:12px;"><span class="icon">📋</span> 同比数据上传进度</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div id="yoyStatusLastBiz" style="padding:8px 12px;border-radius:8px;background:#f1f5f9;font-size:13px;">⬜ 去年 BR — 待上传</div>
+        <div id="yoyStatusLastAds" style="padding:8px 12px;border-radius:8px;background:#f1f5f9;font-size:13px;">⬜ 去年广告 — 待上传</div>
+        <div id="yoyStatusThisBiz" style="padding:8px 12px;border-radius:8px;background:#f1f5f9;font-size:13px;">⬜ 今年 BR — 待上传</div>
+        <div id="yoyStatusThisAds" style="padding:8px 12px;border-radius:8px;background:#f1f5f9;font-size:13px;">⬜ 今年广告 — 待上传</div>
+      </div>
+      <div id="yoyReadyHint" style="margin-top:8px;font-size:12px;color:#94a3b8;">
+        💡 至少需要上传去年和今年各一份 Business Report 或各一份广告报表
+      </div>
+    </div>
+  </div>
+
+  <!-- 五大指标卡片 -->
+  <div class="grid grid-5">
+    <div class="qoq-card ctr"><div class="qoq-icon">🖱️</div><div class="qoq-label" id="qoqCTRLabel">点击率环比</div><div class="qoq-value" id="qoqCTR" style="color:#3b82f6;">—</div><div class="qoq-change flat" id="qoqCTRChange">—</div><div class="qoq-detail" id="qoqCTRDetail">CTR=点击÷曝光<br>反映主图吸引力</div><div class="qoq-visual-tag">🎨 主图吸引力指标</div></div>
+    <div class="qoq-card cvr"><div class="qoq-icon">🎯</div><div class="qoq-label" id="qoqCVRLabel">转化率环比</div><div class="qoq-value" id="qoqCVR" style="color:#22c55e;">—</div><div class="qoq-change flat" id="qoqCVRChange">—</div><div class="qoq-detail" id="qoqCVRDetail">CVR=订单÷会话<br>反映详情页说服力</div><div class="qoq-visual-tag">📄 详情页说服力指标</div></div>
+    <div class="qoq-card vol"><div class="qoq-icon">📊</div><div class="qoq-label" id="qoqVolLabel">流量环比</div><div class="qoq-value" id="qoqVol" style="color:#f59e0b;">—</div><div class="qoq-change flat" id="qoqVolChange">—</div><div class="qoq-detail" id="qoqVolDetail">会话数变化趋势<br>反映整体曝光效果</div><div class="qoq-visual-tag">👁️ 曝光效果指标</div></div>
+    <div class="qoq-card spend"><div class="qoq-icon">💸</div><div class="qoq-label" id="qoqSpendLabel">广告花费环比</div><div class="qoq-value" id="qoqSpend" style="color:#ef4444;">—</div><div class="qoq-change flat" id="qoqSpendChange">—</div><div class="qoq-detail" id="qoqSpendDetail">广告投入变化<br>花费效率是否合理</div><div class="qoq-visual-tag">💰 投入效率指标</div></div>
+    <div class="qoq-card cpc"><div class="qoq-icon">💲</div><div class="qoq-label" id="qoqCPCLabel">CPC环比</div><div class="qoq-value" id="qoqCPC" style="color:#8b5cf6;">—</div><div class="qoq-change flat" id="qoqCPCChange">—</div><div class="qoq-detail" id="qoqCPCDetail">单次点击成本<br>反映竞争激烈度</div><div class="qoq-visual-tag">⚔️ 竞争强度指标</div></div>
+  </div>
+
+  <!-- 趋势图 -->
+  <div class="grid grid-2" style="margin-top:20px;">
+    <div class="card"><h3><span class="icon">📈</span> <span id="qoqChartTitle1">CTR & CVR 环比趋势（日维度）</span></h3><canvas id="chartQoqCTRCVR" height="280"></canvas></div>
+    <div class="card"><h3><span class="icon">💰</span> <span id="qoqChartTitle2">花费 & CPC 环比趋势（日维度）</span></h3><canvas id="chartQoqSpendCPC" height="280"></canvas></div>
+  </div>
+
+  <!-- 同比对比柱状图 -->
+  <div id="yoyChartSection" style="display:none;margin-top:20px;">
+    <div class="card"><h3><span class="icon">📊</span> 今年 vs 去年同月 — 核心指标同比对比</h3><canvas id="chartYoyCompare" height="300"></canvas></div>
+  </div>
+
+  <!-- 详细数据表 -->
+  <div class="card" style="margin-top:20px;">
+    <h3><span class="icon">📋</span> <span id="qoqTableTitle">环比详细数据（周对比 / 月对比）</span></h3>
+    <table class="data-table" id="qoqTable">
+      <tr><th>指标</th><th>上周期</th><th>本周期</th><th>变化值</th><th id="qoqPctHeader">环比%</th><th>趋势</th><th>视觉解读</th></tr>
+      <tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px;">导入数据后自动生成分析</td></tr>
+    </table>
+  </div>
+
+  <!-- 视觉解读 -->
+  <div id="qoqInterpret" style="margin-top:20px;">
+    <div class="qoq-interpret">
+      <h4>🎨 视觉设计师的环比解读指南</h4>
+      <p>
+        <strong>CTR环比上升 ↑</strong> → 主图/广告图更吸引了，好的趋势，继续保持<br>
+        <strong>CTR环比下降 ↓</strong> → 竞品可能在换图，或季节性因素导致，需要检查主图是否过时<br>
+        <strong>CVR环比上升 ↑</strong> → 详情页优化生效了，或市场需求增加<br>
+        <strong>CVR环比下降 ↓</strong> → 详情页说服力变弱，可能是竞品优化了详情页，或内容需要更新<br><br>
+        <strong>📅 同比特别解读（老品必看）：</strong><br>
+        <strong>同比CTR上升</strong> → 一年来主图在进步，视觉竞争力增强<br>
+        <strong>同比CTR下降</strong> → 一年来主图没有更新，被竞品超越了<br>
+        <strong>同比CVR上升</strong> → 详情页/A+持续在优化，说服力增强<br>
+        <strong>同比CVR下降</strong> → 详情页一年没动了，竞品已经超越你
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 页面5: 优化对比 ===== -->
+<div id="page-compare" class="page">
+  <div class="card">
+    <h3><span class="icon">⚡</span> 视觉优化前后对比</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">
+      上传优化前和优化后的数据，直观对比视觉调整对核心指标的影响
+    </p>
+    <div class="grid grid-2" style="margin-bottom:20px;">
+      <div>
+        <h4 style="font-size:13px;margin-bottom:8px;color:var(--danger);">🔴 优化前（Before）</h4>
+        <div class="upload-zone" style="padding:16px;" onclick="document.getElementById('fileBeforeBiz').click()">
+          <p style="font-size:13px;"><strong>📄 上传优化前 Business Report</strong></p><p class="hint">优化前的业务报告 CSV</p>
+        </div>
+        <input type="file" id="fileBeforeBiz" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'beforeBiz')">
+        <div class="upload-zone" style="padding:16px;margin-top:8px;" onclick="document.getElementById('fileBeforeAds').click()">
+          <p style="font-size:13px;"><strong>📈 上传优化前广告报表</strong></p><p class="hint">优化前的广告报表 CSV（可选）</p>
+        </div>
+        <input type="file" id="fileBeforeAds" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'beforeAds')">
+        <div id="compareStatusBefore" style="margin-top:8px;font-size:12px;color:#94a3b8;">⬜ 待上传优化前数据</div>
+      </div>
+      <div>
+        <h4 style="font-size:13px;margin-bottom:8px;color:var(--success);">🟢 优化后（After）</h4>
+        <div class="upload-zone" style="padding:16px;" onclick="document.getElementById('fileAfterBiz').click()">
+          <p style="font-size:13px;"><strong>📄 上传优化后 Business Report</strong></p><p class="hint">优化后的业务报告 CSV</p>
+        </div>
+        <input type="file" id="fileAfterBiz" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'afterBiz')">
+        <div class="upload-zone" style="padding:16px;margin-top:8px;" onclick="document.getElementById('fileAfterAds').click()">
+          <p style="font-size:13px;"><strong>📈 上传优化后广告报表</strong></p><p class="hint">优化后的广告报表 CSV（可选）</p>
+        </div>
+        <input type="file" id="fileAfterAds" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(this,'afterAds')">
+        <div id="compareStatusAfter" style="margin-top:8px;font-size:12px;color:#94a3b8;">⬜ 待上传优化后数据</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="compareResults" style="margin-top:20px;">
+    <div class="card" style="text-align:center;padding:40px;color:#94a3b8;">
+      <div style="font-size:40px;margin-bottom:8px;">⚡</div>
+      <p>上传优化前后的数据后，对比结果将在此显示</p>
+    </div>
+  </div>
+
+  <div id="compareKPIs" style="display:none;margin-top:20px;">
+    <div class="grid grid-4">
+      <div class="card kpi"><div class="label">会话数变化</div><div class="value" id="cmpSessions" style="font-size:28px;">—</div><div class="change flat" id="cmpSessionsChange">—</div></div>
+      <div class="card kpi"><div class="label">转化率变化</div><div class="value" id="cmpCVR" style="font-size:28px;">—</div><div class="change flat" id="cmpCVRChange">—</div></div>
+      <div class="card kpi"><div class="label">销售额变化</div><div class="value" id="cmpSales" style="font-size:28px;">—</div><div class="change flat" id="cmpSalesChange">—</div></div>
+      <div class="card kpi"><div class="label">订购数变化</div><div class="value" id="cmpUnits" style="font-size:28px;">—</div><div class="change flat" id="cmpUnitsChange">—</div></div>
+    </div>
+    <div class="grid grid-5" style="margin-top:20px;">
+      <div class="card kpi"><div class="label">🖱️ 点击率 CTR</div><div class="value" id="cmpCTR" style="font-size:22px;color:#3b82f6;">—</div><div class="change flat" id="cmpCTRChange">—</div></div>
+      <div class="card kpi"><div class="label">💸 广告花费</div><div class="value" id="cmpSpend" style="font-size:22px;color:#ef4444;">—</div><div class="change flat" id="cmpSpendChange">—</div></div>
+      <div class="card kpi"><div class="label">💲 CPC</div><div class="value" id="cmpCPC" style="font-size:22px;color:#8b5cf6;">—</div><div class="change flat" id="cmpCPCChange">—</div></div>
+      <div class="card kpi"><div class="label">📊 ACOS</div><div class="value" id="cmpACOS" style="font-size:22px;color:var(--warning);">—</div><div class="change flat" id="cmpACOSChange">—</div></div>
+      <div class="card kpi"><div class="label">👁️ 曝光量</div><div class="value" id="cmpImpressions" style="font-size:22px;color:var(--info);">—</div><div class="change flat" id="cmpImpressionsChange">—</div></div>
+    </div>
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card"><h3><span class="icon">📊</span> 优化前后核心指标对比</h3><canvas id="chartCompare" height="300"></canvas></div>
+      <div class="card"><h3><span class="icon">📈</span> 优化前后广告指标环比</h3><canvas id="chartCompareAds" height="300"></canvas></div>
+    </div>
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card"><h3><span class="icon">🔍</span> 优化效果诊断</h3><div id="compareDiagnosis"></div></div>
+      <div class="card"><h3><span class="icon">📋</span> 优化效果详细数据</h3><table class="data-table" id="compareTable"><tr><th>指标</th><th>优化前</th><th>优化后</th><th>变化幅度</th><th>视觉归因</th></tr></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 页面6: 使用指南 ===== -->
+<div id="page-guide" class="page">
+  <div class="grid grid-2">
+    <div>
+      <div class="card">
+        <h3><span class="icon">📖</span> 如何从亚马逊后台下载数据</h3>
+        <div class="guide-step"><div class="step-num">1</div><div class="step-content"><h4>下载 Business Report</h4><p>卖家后台 → 数据报告 → 业务报告<br>选择「按日期」或「按ASIN」→ 设置时间范围 → 下载</p></div></div>
+        <div class="guide-step"><div class="step-num">2</div><div class="step-content"><h4>下载广告报表</h4><p>卖家后台 → 广告 → 广告报表<br>选择「推广商品报告」或「搜索词报告」→ 下载</p></div></div>
+        <div class="guide-step"><div class="step-num">3</div><div class="step-content"><h4>上传到本看板</h4><p>将下载的 CSV 文件拖入或点击上传，系统自动识别数据类型（按日期/按ASIN）并解析</p></div></div>
+        <div class="guide-step"><div class="step-num">4</div><div class="step-content"><h4>按产品查看</h4><p>上传「按ASIN」报告后，进入「产品总览」页查看每个产品的独立表现，可按设计师筛选</p></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3><span class="icon">🏷️</span> v3.0 新功能：按产品维度分析</h3>
+        <div class="diagnosis info">
+          <strong>🎯 设计师按产品跟踪</strong><br>
+          上传「按ASIN」维度的 Business Report，系统自动：<br>
+          ① 识别每个产品的 ASIN / Parent ASIN<br>
+          ② 按产品分组展示 Sessions、CVR、销售额等<br>
+          ③ 给每个产品标注视觉健康度（🟢优秀/🟡中等/🔴需优化）<br>
+          ④ 支持给产品分配设计师标签，按设计师筛选<br>
+          ⑤ 多产品并排对比
+        </div>
+        <table class="data-table" style="margin-top:16px;">
+          <tr><th>报告类型</th><th>看板处理方式</th></tr>
+          <tr><td>按日期 (By Date)</td><td>整店趋势分析，原有功能不变</td></tr>
+          <tr><td>按ASIN (By ASIN)</td><td><strong>自动按产品分组</strong>，产品总览页展示</td></tr>
+          <tr><td>按子ASIN (Child)</td><td>按子ASIN展示，可按Parent ASIN聚合</td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-top:20px;">
+        <h3><span class="icon">🏷️</span> CSV 文件字段对照表</h3>
+        <table class="data-table">
+          <tr><th>英文字段名</th><th>中文字段名</th><th>视觉相关</th></tr>
+          <tr><td>(Parent) ASIN</td><td>(父)产品编号</td><td><span class="field-tag">产品标识</span></td></tr>
+          <tr><td>Product Title</td><td>产品标题</td><td><span class="field-tag">产品名称</span></td></tr>
+          <tr><td>Sessions</td><td>会话数</td><td><span class="field-tag visual">是</span></td></tr>
+          <tr><td>Page Views</td><td>页面浏览量</td><td><span class="field-tag visual">是</span></td></tr>
+          <tr><td>Unit Session Percentage</td><td>转化率</td><td><span class="field-tag visual">是 ⭐</span></td></tr>
+          <tr><td>Units Ordered</td><td>订购商品数</td><td><span class="field-tag">否</span></td></tr>
+          <tr><td>Ordered Product Sales</td><td>已订购商品销售额</td><td><span class="field-tag">否</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  📊 亚马逊商品视觉数据看板 v3.1 | 专为跨境视觉设计师打造 | ASIN产品维度 + 设计师标签 + 趋势变化 + 环比同比分析 | 数据校验 | CSV导出 | 暗色模式 | 数据仅在本地处理
+</footer>
+
+<script>
+// ========== 全局状态 ==========
+let appState = {
+  site: 'us',
+  bizData: null,
+  adsData: null,
+  beforeData: null,
+  afterData: null,
+  beforeAdsData: null,
+  afterAdsData: null,
+  yoyLastBiz: null,
+  yoyLastAds: null,
+  yoyThisBiz: null,
+  yoyThisAds: null,
+  qoqMode: 'qoq',
+  charts: {},
+  darkMode: false,
+  // v3.0 新增
+  dataType: null,       // 'byDate' | 'byAsin' | null
+  asinMap: {},          // { asin: { title, designer, rows } }
+  asinAdsMap: {},       // { asin: { rows } }
+  selectedAsins: [],    // 当前选中的ASIN列表
+  designerMap: {},      // { asin: '设计师名' }
+  sortField: 'sessions',
+  sortDir: 'desc',
+};
+
+// ========== 数据持久化 ==========
+function saveToStorage() {
+  try {
+    // 精简 asinMap 用于保存（只保留 key 信息，rows 限制数量）
+    let asinMapSave = null;
+    if (appState.asinMap && Object.keys(appState.asinMap).length > 0) {
+      asinMapSave = {};
+      Object.entries(appState.asinMap).forEach(([asin, info]) => {
+        asinMapSave[asin] = {
+          asin: info.asin,
+          title: info.title,
+          rows: info.rows.slice(0, 500)
+        };
+      });
+    }
+    const summary = {
+      site: appState.site, timestamp: new Date().toISOString(),
+      dataType: appState.dataType,
+      bizData: appState.bizData ? { headers: appState.bizData.headers, rows: appState.bizData.rows.slice(0, 2000) } : null,
+      adsData: appState.adsData ? { headers: appState.adsData.headers, rows: appState.adsData.rows.slice(0, 1000) } : null,
+      asinMap: asinMapSave,
+      beforeData: appState.beforeData ? { headers: appState.beforeData.headers, rows: appState.beforeData.rows.slice(0, 1000) } : null,
+      afterData: appState.afterData ? { headers: appState.afterData.headers, rows: appState.afterData.rows.slice(0, 1000) } : null,
+      beforeAdsData: appState.beforeAdsData ? { headers: appState.beforeAdsData.headers, rows: appState.beforeAdsData.rows.slice(0, 500) } : null,
+      afterAdsData: appState.afterAdsData ? { headers: appState.afterAdsData.headers, rows: appState.afterAdsData.rows.slice(0, 500) } : null,
+      yoyLastBiz: appState.yoyLastBiz ? { headers: appState.yoyLastBiz.headers, rows: appState.yoyLastBiz.rows.slice(0, 1000) } : null,
+      yoyThisBiz: appState.yoyThisBiz ? { headers: appState.yoyThisBiz.headers, rows: appState.yoyThisBiz.rows.slice(0, 1000) } : null,
+      yoyLastAds: appState.yoyLastAds ? { headers: appState.yoyLastAds.headers, rows: appState.yoyLastAds.rows.slice(0, 500) } : null,
+      yoyThisAds: appState.yoyThisAds ? { headers: appState.yoyThisAds.headers, rows: appState.yoyThisAds.rows.slice(0, 500) } : null,
+      designerMap: appState.designerMap,
+      selectedAsins: appState.selectedAsins,
+    };
+    localStorage.setItem('amazon_visual_dashboard_v3', JSON.stringify(summary));
+  } catch(e) { console.warn('保存失败:', e.message); }
+}
+
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem('amazon_visual_dashboard_v3');
+    if (!saved) return false;
+    const data = JSON.parse(saved);
+    if (data.site) appState.site = data.site;
+    if (data.dataType) appState.dataType = data.dataType;
+    if (data.designerMap) appState.designerMap = data.designerMap;
+    if (data.selectedAsins) appState.selectedAsins = data.selectedAsins;
+    // 直接恢复 asinMap（如果有保存的话，优先于从 bizData 重建）
+    if (data.asinMap && Object.keys(data.asinMap).length > 0) {
+      appState.asinMap = data.asinMap;
+    }
+    let restored = false;
+    if (data.bizData && data.bizData.rows?.length) { appState.bizData = data.bizData; restored = true; }
+    if (data.adsData && data.adsData.rows?.length) { appState.adsData = data.adsData; restored = true; }
+    if (data.beforeData && data.beforeData.rows?.length) appState.beforeData = data.beforeData;
+    if (data.afterData && data.afterData.rows?.length) appState.afterData = data.afterData;
+    if (data.beforeAdsData && data.beforeAdsData.rows?.length) appState.beforeAdsData = data.beforeAdsData;
+    if (data.afterAdsData && data.afterData.rows?.length) appState.afterAdsData = data.afterAdsData;
+    if (data.yoyLastBiz && data.yoyLastBiz.rows?.length) appState.yoyLastBiz = data.yoyLastBiz;
+    if (data.yoyThisBiz && data.yoyThisBiz.rows?.length) appState.yoyThisBiz = data.yoyThisBiz;
+    if (data.yoyLastAds && data.yoyLastAds.rows?.length) appState.yoyLastAds = data.yoyLastAds;
+    if (data.yoyThisAds && data.yoyThisAds.rows?.length) appState.yoyThisAds = data.yoyThisAds;
+    return restored;
+  } catch(e) { return false; }
+}
+
+// ========== v3.0 核心：数据类型检测 ==========
+function detectDataType(data) {
+  if (!data || !data.headers || !data.rows.length) return 'byDate';
+  const headers = data.headers.map(h => h.toLowerCase());
+  // 检查是否有 ASIN 列
+  const hasAsin = headers.some(h => h.includes('asin'));
+  const hasTitle = headers.some(h => h.includes('title') || h.includes('产品') || h.includes('商品名称'));
+  if (hasAsin || hasTitle) return 'byAsin';
+  return 'byDate';
+}
+
+// ========== v3.1 数据校验 ==========
+function validateUploadedData(data, type) {
+  const result = { warnings: [], severity: 'warn' };
+  if (!data || !data.headers || !data.rows) {
+    result.warnings.push('• 文件结构异常：无法识别表头或数据行');
+    result.severity = 'error';
+    return result;
+  }
+
+  const headers = data.headers.map(h => h.toLowerCase());
+  const row = data.rows[0] || {};
+
+  if (type === 'business' || type === 'beforeBiz' || type === 'afterBiz' || type === 'yoyLastBiz' || type === 'yoyThisBiz') {
+    // Business Report 必要字段
+    const hasSessions = headers.some(h => h.includes('session') || h.includes('会话'));
+    const hasDate = headers.some(h => h.includes('date') || h.includes('日期'));
+    const hasCVR = headers.some(h => h.includes('unit session') || h.includes('转化率'));
+    const hasSales = headers.some(h => h.includes('ordered product sales') || h.includes('销售额') || h.includes('销售'));
+
+    if (!hasDate) { result.warnings.push('• 缺少"日期(Date)"列 — 趋势图和环比分析将无法工作'); result.severity = 'error'; }
+    if (!hasSessions) result.warnings.push('• 缺少"会话数(Sessions)"列 — 流量分析将显示0');
+    if (!hasCVR) result.warnings.push('• 缺少"转化率(Unit Session %)"列 — CVR相关指标将显示0');
+    if (!hasSales) result.warnings.push('• 缺少"销售额(Ordered Product Sales)"列 — 销售额将显示0');
+
+    // 检测数据行数是否合理
+    if (data.rows.length < 3) result.warnings.push('• 数据行数太少（仅' + data.rows.length + '行），分析结果可能不准确');
+
+    // 检测数据类型
+    const dataType = detectDataType(data);
+    if (dataType === 'byAsin') {
+      const hasAsin = headers.some(h => h.includes('asin'));
+      if (hasAsin) {
+        const uniqueAsins = new Set(data.rows.map(r => findField(r, ['ASIN', '(Parent ASIN)', 'Parent ASIN', 'asin'])));
+        if (uniqueAsins.size > 50) result.warnings.push('• 检测到' + uniqueAsins.size + '个ASIN，数据量较大，浏览器可能变慢');
+      }
+    }
+
+  } else if (type === 'ads' || type === 'beforeAds' || type === 'afterAds' || type === 'yoyLastAds' || type === 'yoyThisAds') {
+    // 广告报表必要字段
+    const hasImpressions = headers.some(h => h.includes('impression') || h.includes('曝光'));
+    const hasClicks = headers.some(h => h.includes('click') || h.includes('点击'));
+    const hasSpend = headers.some(h => h.includes('spend') || h.includes('花费'));
+
+    if (!hasImpressions && !hasClicks) {
+      result.warnings.push('• 缺少"曝光(Impressions)"和"点击(Clicks)"列 — 这可能不是广告报表');
+      result.severity = 'error';
+    }
+    if (!hasSpend) result.warnings.push('• 缺少"花费(Spend)"列 — 广告花费将显示0');
+  }
+
+  return result;
+}
+
+// 按 ASIN 分组数据
+function groupByAsin(data) {
+  if (!data || !data.rows) return {};
+  const map = {};
+  data.rows.forEach(row => {
+    const asin = findField(row, ['ASIN', '(Parent ASIN)', 'Parent ASIN', 'asin']) || findField(row, ['Product Name', 'Title', '产品', '商品名称']) || '未知';
+    if (!map[asin]) {
+      map[asin] = {
+        asin: asin,
+        title: findField(row, ['Product Title', 'Title', '产品名称', '商品名称']) || asin,
+        rows: [],
+      };
+    }
+    map[asin].rows.push(row);
+  });
+  return map;
+}
+
+// 按 ASIN 聚合广告数据（如果有 ASIN 列）
+function groupAdsByAsin(data) {
+  if (!data || !data.rows) return {};
+  const map = {};
+  data.rows.forEach(row => {
+    const asin = findField(row, ['ASIN', 'asin', 'Advertised ASIN', '推广ASIN']) || '';
+    if (!asin) return;
+    if (!map[asin]) map[asin] = { rows: [] };
+    map[asin].rows.push(row);
+  });
+  return map;
+}
+
+// ========== 计算单产品KPI ==========
+function calcProductKPI(asinInfo) {
+  const rows = asinInfo.rows;
+  if (!rows || !rows.length) return null;
+
+  // 按日期排序
+  const sorted = [...rows].sort((a, b) => (findField(a, ['Date','日期']) || '').localeCompare(findField(b, ['Date','日期']) || ''));
+
+  const sessions = sorted.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0);
+  const pv = sorted.reduce((s,r) => s + getNum(r,'Page Views','页面浏览'), 0);
+  const cvr = sorted.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / sorted.length;
+  const sales = sorted.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0);
+  const units = sorted.reduce((s,r) => s + getNum(r,'Units Ordered','订购'), 0);
+  const pvPerSession = sessions ? pv / sessions : 0;
+
+  // 环比趋势：前后半段对比
+  const mid = Math.floor(sorted.length / 2);
+  const firstHalf = sorted.slice(0, mid);
+  const secondHalf = sorted.slice(mid);
+  let sessionsChg = 0, cvrChg = 0, salesChg = 0;
+  if (firstHalf.length && secondHalf.length) {
+    const s1 = firstHalf.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0);
+    const s2 = secondHalf.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0);
+    sessionsChg = s1 ? ((s2 - s1) / s1 * 100) : 0;
+    const cvr1 = firstHalf.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / firstHalf.length;
+    const cvr2 = secondHalf.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / secondHalf.length;
+    cvrChg = cvr1 ? ((cvr2 - cvr1) / cvr1 * 100) : 0;
+    const sales1 = firstHalf.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0);
+    const sales2 = secondHalf.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0);
+    salesChg = sales1 ? ((sales2 - sales1) / sales1 * 100) : 0;
+  }
+
+  // 健康度判断
+  let health = 'bad';
+  if (cvr >= 12 && pvPerSession >= 2.5) health = 'good';
+  else if (cvr >= 8 || (cvr >= 6 && pvPerSession >= 2.5)) health = 'warn';
+  return { sessions, pv, cvr, sales, units, pvPerSession, health, title: asinInfo.title, asin: asinInfo.asin,
+           sessionsChg, cvrChg, salesChg };
+}
+
+// 格式化趋势标签（会话/CVR/销售额三个环比变化）
+function formatTrend(sessionsChg, cvrChg, salesChg) {
+  function arrow(val) {
+    if (Math.abs(val) < 0.5) return '<span style="color:#94a3b8;">→</span>';
+    return val > 0
+      ? '<span style="color:#22c55e;font-weight:600;">↑' + val.toFixed(0) + '%</span>'
+      : '<span style="color:#ef4444;font-weight:600;">↓' + Math.abs(val).toFixed(0) + '%</span>';
+  }
+  return '<div style="font-size:11px;line-height:1.6;">' +
+    '<div>访' + arrow(sessionsChg) + '</div>' +
+    '<div>转' + arrow(cvrChg) + '</div>' +
+    '<div>销' + arrow(salesChg) + '</div>' +
+    '</div>';
+}
+
+// ========== 产品选择器更新 ==========
+function updateProductSelector() {
+  const selector = document.getElementById('productSelector');
+  const asinFilter = document.getElementById('asinFilter');
+  const designerFilter = document.getElementById('designerFilter');
+  const tabsBar = document.getElementById('tabsBar');
+
+  if (appState.dataType === 'byAsin' && Object.keys(appState.asinMap).length > 0) {
+    selector.classList.add('visible');
+    tabsBar.classList.add('has-selector');
+
+    // ASIN 下拉框
+    let asinOptions = '<option value="__all__">全部产品 (' + Object.keys(appState.asinMap).length + '个)</option>';
+    Object.keys(appState.asinMap).forEach(asin => {
+      const info = appState.asinMap[asin];
+      const label = info.title && info.title !== asin ? (asin + ' — ' + info.title.substring(0,30)) : asin;
+      asinOptions += '<option value="' + asin + '">' + label + '</option>';
+    });
+    asinFilter.innerHTML = asinOptions;
+
+    // 设计师下拉框
+    const designers = new Set(Object.values(appState.designerMap).filter(d => d));
+    let desOptions = '<option value="__all__">全部设计师</option>';
+    designers.forEach(d => { desOptions += '<option value="' + d + '">' + d + '</option>'; });
+    // 添加"未分配"选项
+    const unassigned = Object.keys(appState.asinMap).some(a => !appState.designerMap[a]);
+    if (unassigned) desOptions += '<option value="__none__">未分配设计师</option>';
+    designerFilter.innerHTML = desOptions;
+
+    // 设计师标签
+    updateDesignerTags();
+    updateAsinCountBadge();
+  } else {
+    selector.classList.remove('visible');
+    tabsBar.classList.remove('has-selector');
+  }
+}
+
+function updateDesignerTags() {
+  const el = document.getElementById('designerTags');
+  if (!el) return;
+  const designers = {};
+  Object.entries(appState.designerMap).forEach(([asin, d]) => {
+    if (d) { if (!designers[d]) designers[d] = []; designers[d].push(asin); }
+  });
+  const colors = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+  let html = '';
+  Object.entries(designers).forEach(([name, asins], i) => {
+    const color = colors[i % colors.length];
+    html += '<span class="designer-tag" style="background:' + color + '20;color:' + color + ';border:1px solid ' + color + '40;" onclick="filterByDesigner(\'' + name + '\')">' + name + ' (' + asins.length + ')</span>';
+  });
+  el.innerHTML = html;
+}
+
+function updateAsinCountBadge() {
+  const el = document.getElementById('asinCountBadge');
+  if (!el) return;
+  const total = Object.keys(appState.asinMap).length;
+  const assigned = Object.values(appState.designerMap).filter(d => d).length;
+  el.textContent = '共 ' + total + ' 个产品，' + assigned + ' 个已分配设计师';
+}
+
+function onAsinFilterChange() {
+  const val = document.getElementById('asinFilter').value;
+  if (val === '__all__') {
+    appState.selectedAsins = Object.keys(appState.asinMap);
+  } else {
+    appState.selectedAsins = [val];
+  }
+  // 联动重新渲染
+  if (appState.bizData) renderDashboard(appState.bizData);
+  if (appState.adsData) renderAdsData(appState.adsData);
+  renderProductOverview();
+}
+
+function onDesignerFilterChange() {
+  const val = document.getElementById('designerFilter').value;
+  if (val === '__all__') {
+    appState.selectedAsins = Object.keys(appState.asinMap);
+  } else if (val === '__none__') {
+    appState.selectedAsins = Object.keys(appState.asinMap).filter(a => !appState.designerMap[a]);
+  } else {
+    appState.selectedAsins = Object.keys(appState.asinMap).filter(a => appState.designerMap[a] === val);
+  }
+  // 联动重新渲染
+  if (appState.bizData) renderDashboard(appState.bizData);
+  if (appState.adsData) renderAdsData(appState.adsData);
+  renderProductOverview();
+}
+
+function filterByDesigner(name) {
+  document.getElementById('designerFilter').value = name;
+  onDesignerFilterChange();
+}
+
+// 给产品分配设计师
+function assignDesigner(asin) {
+  const current = appState.designerMap[asin] || '';
+  const name = prompt('请输入设计师名称（用于筛选和标记）：', current);
+  if (name === null) return; // 取消
+  appState.designerMap[asin] = name.trim();
+  saveToStorage();
+  updateProductSelector();
+  renderProductOverview();
+}
+
+// ========== 页面加载 ==========
+window.addEventListener('DOMContentLoaded', function() {
+  const darkPref = localStorage.getItem('amazon_visual_dark');
+  if (darkPref === '1') {
+    appState.darkMode = true;
+    document.body.classList.add('dark');
+    const btn = document.getElementById('btnDarkMode');
+    if (btn) { btn.textContent = '☀️ 亮色'; btn.style.background = 'rgba(248,250,252,0.9)'; btn.style.color = '#1e293b'; }
+  }
+  const restored = loadFromStorage();
+  if (restored) {
+    document.getElementById('siteSelect').value = appState.site;
+    // 如果 asinMap 已经从 storage 恢复（直接保存的），不需要再重建
+    // 只有当 asinMap 为空且 bizData 是 byAsin 类型时才从 bizData 重建
+    if (Object.keys(appState.asinMap).length === 0 && appState.bizData) {
+      appState.dataType = detectDataType(appState.bizData);
+      if (appState.dataType === 'byAsin') {
+        appState.asinMap = groupByAsin(appState.bizData);
+        if (!appState.selectedAsins.length) appState.selectedAsins = Object.keys(appState.asinMap);
+      }
+    } else if (Object.keys(appState.asinMap).length > 0 && !appState.dataType) {
+      // asinMap 从 storage 恢复了，确保 dataType 也正确
+      appState.dataType = 'byAsin';
+    }
+    if (appState.adsData && appState.dataType === 'byAsin') {
+      appState.asinAdsMap = groupAdsByAsin(appState.adsData);
+    }
+    if (appState.bizData) { showDataOverview('business', appState.bizData); renderDashboard(appState.bizData); }
+    if (appState.adsData) { showDataOverview('ads', appState.adsData); renderAdsData(appState.adsData); }
+    if (appState.bizData || appState.adsData) { renderQoqAnalysis(); renderBenchmarks(); }
+    if (appState.dataType === 'byAsin') { renderProductOverview(); updateProductSelector(); }
+    // 恢复优化对比数据
+    if (appState.beforeData && appState.afterData) {
+      updateCompareStatus('before', appState.beforeData);
+      updateCompareStatus('after', appState.afterData);
+      renderCompare(appState.beforeData, appState.afterData);
+    }
+    // 恢复同比数据状态
+    if (appState.yoyLastBiz) updateYoyUploadStatus('lastBiz', appState.yoyLastBiz);
+    if (appState.yoyThisBiz) updateYoyUploadStatus('thisBiz', appState.yoyThisBiz);
+    if (appState.yoyLastAds) updateYoyUploadStatus('lastAds', appState.yoyLastAds);
+    if (appState.yoyThisAds) updateYoyUploadStatus('thisAds', appState.yoyThisAds);
+    if (appState.yoyLastBiz && appState.yoyThisBiz) renderYoyAnalysis();
+  }
+});
+
+// ========== 标签页切换 ==========
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  // 找到对应的tab并激活（不依赖event对象，更可靠）
+  const tabs = document.querySelectorAll('.tab');
+  const tabMap = { upload: 0, products: 1, dashboard: 2, qoq: 3, compare: 4, guide: 5 };
+  const idx = tabMap[tab];
+  if (idx !== undefined && tabs[idx]) tabs[idx].classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+}
+
+// 站点配置
+const SITE_CONFIG = {
+  us: { currency: '$', name: '美国站', flag: '🇺🇸', benchmarks: { ctr: 0.35, cvr: 12, acos: 25, cpc: 0.75, pvPerSession: 2.8 } },
+  uk: { currency: '£', name: '欧洲站', flag: '🇬🇧', benchmarks: { ctr: 0.30, cvr: 10, acos: 22, cpc: 0.55, pvPerSession: 2.6 } },
+  jp: { currency: '¥', name: '日本站', flag: '🇯🇵', benchmarks: { ctr: 0.45, cvr: 14, acos: 20, cpc: 50, pvPerSession: 3.2 } },
+};
+
+function getCurrency() { return SITE_CONFIG[appState.site]?.currency || '$'; }
+function getBenchmarks() { return SITE_CONFIG[appState.site]?.benchmarks || SITE_CONFIG.us.benchmarks; }
+
+function switchSite() {
+  appState.site = document.getElementById('siteSelect').value;
+  if (appState.bizData) renderDashboard(appState.bizData);
+  if (appState.adsData) renderAdsData(appState.adsData);
+  if (appState.bizData || appState.adsData) renderQoqAnalysis();
+  if (appState.beforeData && appState.afterData) renderCompare(appState.beforeData, appState.afterData);
+  renderBenchmarks();
+}
+
+function switchPeriod() {
+  if (appState.bizData) renderDashboard(appState.bizData);
+  if (appState.adsData) renderAdsData(appState.adsData);
+  if (appState.bizData || appState.adsData) renderQoqAnalysis();
+}
+
+// ========== 文件上传处理 ==========
+function handleFileUpload(input, type) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { alert('⚠️ 文件过大（超过10MB），请检查是否选错了文件'); return; }
+  if (!file.name.toLowerCase().endsWith('.csv') && !file.name.toLowerCase().endsWith('.tsv') && !file.name.toLowerCase().endsWith('.txt')) {
+    alert('⚠️ 请上传 CSV 格式文件\n\n当前文件：' + file.name + '\n\n提示：从亚马逊后台下载的报告通常是 .csv 格式');
+    return;
+  }
+
+  readFileWithEncoding(file).then(text => {
+    try {
+      const data = parseCSV(text);
+      if (data.rows.length === 0) { alert('⚠️ 文件解析成功但没有数据行\n\n可能原因：\n① 文件只有表头没有数据\n② 编码问题导致解析异常\n③ 下载了空报告'); return; }
+
+      // 数据校验
+      const validation = validateUploadedData(data, type);
+      if (validation.warnings.length) {
+        const warnMsg = validation.warnings.join('\n');
+        if (validation.severity === 'error') {
+          alert('❌ 数据格式不匹配\n\n' + warnMsg);
+          return;
+        }
+        // 警告级：提示但继续
+        if (!confirm('⚠️ 数据校验发现以下问题：\n\n' + warnMsg + '\n\n是否继续导入？（缺少的字段将显示为0）')) return;
+      }
+
+      // v3.0: 自动检测数据类型
+      if (type === 'business') {
+        appState.bizData = data;
+        appState.dataType = detectDataType(data);
+        if (appState.dataType === 'byAsin') {
+          appState.asinMap = groupByAsin(data);
+          appState.selectedAsins = Object.keys(appState.asinMap);
+        }
+        showDataOverview('business', data);
+        renderDashboard(data);
+        if (appState.dataType === 'byAsin') { renderProductOverview(); updateProductSelector(); }
+      } else if (type === 'ads') {
+        appState.adsData = data;
+        if (appState.dataType === 'byAsin') appState.asinAdsMap = groupAdsByAsin(data);
+        showDataOverview('ads', data);
+        renderAdsData(data);
+      } else if (type === 'beforeBiz') {
+        appState.beforeData = data;
+        updateCompareStatus('before', data);
+        if (appState.afterData) renderCompare(appState.beforeData, appState.afterData);
+      } else if (type === 'beforeAds') {
+        appState.beforeAdsData = data;
+        updateCompareStatus('before', data, true);
+        if (appState.afterData) renderCompare(appState.beforeData, appState.afterData);
+      } else if (type === 'afterBiz') {
+        appState.afterData = data;
+        updateCompareStatus('after', data);
+        if (appState.beforeData) renderCompare(appState.beforeData, appState.afterData);
+      } else if (type === 'afterAds') {
+        appState.afterAdsData = data;
+        updateCompareStatus('after', data, true);
+        if (appState.beforeData) renderCompare(appState.beforeData, appState.afterData);
+      } else if (type === 'yoyLastBiz') {
+        appState.yoyLastBiz = data;
+        updateYoyUploadStatus('lastBiz', data);
+        if (appState.yoyThisBiz) renderYoyAnalysis();
+      } else if (type === 'yoyLastAds') {
+        appState.yoyLastAds = data;
+        updateYoyUploadStatus('lastAds', data);
+        if (appState.yoyThisAds) renderYoyAnalysis();
+      } else if (type === 'yoyThisBiz') {
+        appState.yoyThisBiz = data;
+        updateYoyUploadStatus('thisBiz', data);
+        if (appState.yoyLastBiz) renderYoyAnalysis();
+      } else if (type === 'yoyThisAds') {
+        appState.yoyThisAds = data;
+        updateYoyUploadStatus('thisAds', data);
+        if (appState.yoyLastAds) renderYoyAnalysis();
+      }
+      renderQoqAnalysis();
+      saveToStorage();
+    } catch(err) {
+      alert('❌ 文件解析失败：' + err.message);
+    }
+  }).catch(err => { alert('❌ 文件读取失败：' + err.message); });
+}
+
+// ========== CSV 解析 ==========
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = smartSplitLines(text);
+  if (lines.length < 2) throw new Error('数据行数不足');
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(8, lines.length); i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes('date') || line.includes('日期') || line.includes('sessions') || line.includes('会话') ||
+        line.includes('impressions') || line.includes('曝光') || line.includes('clicks') || line.includes('点击') ||
+        line.includes('asin') || line.includes('title') || line.includes('产品')) {
+      headerIdx = i; break;
+    }
+    if (i === Math.min(8, lines.length) - 1) headerIdx = 0;
+  }
+  const headers = parseCSVLine(lines[headerIdx]);
+  if (headers.length < 2) throw new Error('无法识别CSV表头');
+  const rows = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = parseCSVLine(line);
+    if (vals.length >= 2 && vals.some(v => v.trim() !== '')) {
+      const row = {};
+      headers.forEach((h, idx) => { row[h.trim()] = (vals[idx] || '').trim(); });
+      rows.push(row);
+    }
+  }
+  if (rows.length === 0) throw new Error('解析到0行数据');
+  return { headers: headers.map(h => h.trim()), rows };
+}
+
+function smartSplitLines(text) {
+  const lines = []; let current = ''; let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') { inQuotes = !inQuotes; current += ch; }
+    else if ((ch === '\n' || ch === '\r') && !inQuotes) { if (current.trim()) lines.push(current); current = ''; if (ch === '\r' && i + 1 < text.length && text[i + 1] === '\n') i++; }
+    else current += ch;
+  }
+  if (current.trim()) lines.push(current);
+  return lines;
+}
+
+function parseCSVLine(line) {
+  const result = []; let current = ''; let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; } else inQuotes = !inQuotes; }
+    else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
+    else current += ch;
+  }
+  result.push(current);
+  return result;
+}
+
+function readFileWithEncoding(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      const garbled = (text.match(/\ufffd/g) || []).length;
+      if (garbled > text.length * 0.05 && text.length > 100) {
+        const reader2 = new FileReader();
+        reader2.onload = function(e2) { resolve(e2.target.result); };
+        reader2.onerror = () => resolve(text);
+        reader2.readAsText(file, 'Shift_JIS');
+      } else resolve(text);
+    };
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsText(file, 'UTF-8');
+  });
+}
+
+// ========== 查找字段 ==========
+function findField(row, candidates) {
+  for (const c of candidates) { for (const key of Object.keys(row)) { if (key.includes(c)) return row[key]; } }
+  return null;
+}
+function getNum(row, ...candidates) {
+  const val = findField(row, candidates);
+  if (!val) return 0;
+  return parseFloat(String(val).replace(/[^0-9.\-]/g, '')) || 0;
+}
+
+// ========== 演示数据 ==========
+function loadDemoData(type) {
+  if (type === 'new') {
+    // 同时生成按日期和按ASIN的演示数据
+    appState.bizData = generateDemoBizData(30);
+    appState.adsData = generateDemoAdsData(30);
+    // 同时生成按ASIN数据
+    appState.asinMap = generateDemoAsinData(5);
+    appState.dataType = 'byAsin';
+    appState.selectedAsins = Object.keys(appState.asinMap);
+    appState.asinAdsMap = generateDemoAsinAdsData(appState.asinMap);
+    // 预设设计师
+    const designers = ['小王', '小李', '小张', '小陈', '小王'];
+    Object.keys(appState.asinMap).forEach((asin, i) => { appState.designerMap[asin] = designers[i]; });
+
+    showDataOverview('business', appState.bizData);
+    showDataOverview('ads', appState.adsData);
+    renderDashboard(appState.bizData);
+    renderAdsData(appState.adsData);
+    renderQoqAnalysis();
+    renderBenchmarks();
+    renderProductOverview();
+    updateProductSelector();
+    switchTab('products');
+  } else if (type === 'compare') {
+    appState.beforeData = generateDemoBizData(30, 'before');
+    appState.afterData = generateDemoBizData(30, 'after');
+    appState.beforeAdsData = generateDemoAdsData(30, 'before');
+    appState.afterAdsData = generateDemoAdsData(30, 'after');
+    renderCompare(appState.beforeData, appState.afterData);
+    switchTab('compare');
+  }
+}
+
+// 演示数据：按日期
+function generateDemoBizData(days, mode) {
+  const headers = ['Date','Sessions','Page Views','Page Views Percentage','Buy Box Percentage','Units Ordered','Unit Session Percentage','Ordered Product Sales','Total Order Items','Average Selling Price'];
+  const rows = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(2026, 2, 12 + i);
+    const dateStr = d.toISOString().split('T')[0];
+    let baseSessions = 80 + Math.floor(Math.random() * 40);
+    let baseCVR = 8 + Math.random() * 4;
+    let baseSales = 400 + Math.random() * 200;
+    if (mode === 'before') { baseSessions = 60 + Math.floor(Math.random() * 30); baseCVR = 6 + Math.random() * 3; baseSales = 280 + Math.random() * 120; }
+    else if (mode === 'after') { baseSessions = 100 + Math.floor(Math.random() * 60); baseCVR = 12 + Math.random() * 5; baseSales = 550 + Math.random() * 300; }
+    else if (mode === 'yoyLast') { baseSessions = 50 + Math.floor(Math.random() * 25); baseCVR = 6 + Math.random() * 2.5; baseSales = 220 + Math.random() * 100; }
+    else if (mode === 'yoyThis') { baseSessions = 90 + Math.floor(Math.random() * 50); baseCVR = 11 + Math.random() * 4; baseSales = 500 + Math.random() * 250; }
+    const trend = mode === 'after' ? i * 2 : (mode === 'before' ? 0 : (mode === 'yoyThis' ? i * 1.2 : i * 0.3));
+    const sessions = Math.round(baseSessions + trend + (Math.random()-0.5)*20);
+    const pv = Math.round(sessions * (2.2 + Math.random() * 0.5));
+    const cvr = Math.min(35, Math.max(3, baseCVR + (mode==='after' ? i*0.1 : (mode==='before' ? 0 : (mode==='yoyThis' ? i*0.06 : 0)))));
+    const units = Math.round(sessions * cvr / 100);
+    const sales = (baseSales + (mode==='after' ? i*8 : (mode==='yoyThis' ? i*5 : i*2))).toFixed(2);
+    rows.push({ Date: dateStr, Sessions: sessions, 'Page Views': pv, 'Page Views Percentage': (2.5+Math.random()).toFixed(2), 'Buy Box Percentage': (85+Math.random()*15).toFixed(1), 'Units Ordered': units, 'Unit Session Percentage': cvr.toFixed(1), 'Ordered Product Sales': sales, 'Total Order Items': Math.max(1, Math.round(units * 0.85)), 'Average Selling Price': (parseFloat(sales)/Math.max(1,units)).toFixed(2) });
+  }
+  return { headers, rows };
+}
+
+// v3.0 演示数据：按ASIN
+function generateDemoAsinData(count) {
+  const products = [
+    { asin: 'B0CR5K2XN1', title: 'Women Wide Leg Pants High Waist' },
+    { asin: 'B0CR5K2XN2', title: 'Casual Jogger Pants for Women' },
+    { asin: 'B0CR5K2XN3', title: 'Yoga Flare Pants Bootcut' },
+    { asin: 'B0CR5K2XN4', title: 'Slim Fit Dress Trousers Women' },
+    { asin: 'B0CR5K2XN5', title: 'Athletic Sweatpants with Pockets' },
+  ];
+  const map = {};
+  for (let i = 0; i < Math.min(count, products.length); i++) {
+    const p = products[i];
+    const rows = [];
+    const days = 30;
+    for (let d = 0; d < days; d++) {
+      const date = new Date(2026, 2, 12 + d);
+      const sessions = Math.round(50 + Math.random() * 80 + d * 1.5 + i * 20);
+      const cvr = Math.max(4, Math.min(20, 8 + Math.random() * 6 + i * 1.5 + d * 0.08));
+      const units = Math.round(sessions * cvr / 100);
+      const sales = (units * (25 + Math.random() * 15)).toFixed(2);
+      rows.push({
+        Date: date.toISOString().split('T')[0],
+        ASIN: p.asin,
+        'Product Title': p.title,
+        Sessions: sessions,
+        'Page Views': Math.round(sessions * (2 + Math.random() * 1)),
+        'Unit Session Percentage': cvr.toFixed(1),
+        'Units Ordered': units,
+        'Ordered Product Sales': sales,
+        'Buy Box Percentage': (80 + Math.random() * 20).toFixed(1),
+        'Average Selling Price': (parseFloat(sales)/Math.max(1,units)).toFixed(2),
+      });
+    }
+    map[p.asin] = { asin: p.asin, title: p.title, rows };
+  }
+  return map;
+}
+
+function generateDemoAsinAdsData(asinMap) {
+  const map = {};
+  Object.keys(asinMap).forEach(asin => {
+    const rows = [];
+    for (let d = 0; d < 30; d++) {
+      const date = new Date(2026, 2, 12 + d);
+      const impressions = Math.round(2000 + Math.random() * 3000);
+      const clicks = Math.round(impressions * (0.003 + Math.random() * 0.005));
+      const ctr = (clicks/impressions*100).toFixed(2);
+      const cpc = (0.4 + Math.random() * 0.6).toFixed(2);
+      const spend = (clicks * parseFloat(cpc)).toFixed(2);
+      rows.push({ Date: date.toISOString().split('T')[0], ASIN: asin, Impressions: impressions, Clicks: clicks, CTR: ctr + '%', CPC: cpc, Spend: spend, Sales: (parseFloat(spend) * (2 + Math.random()*3)).toFixed(2), ACOS: (parseFloat(spend)/(parseFloat(spend)*(2+Math.random()*3))*100).toFixed(1)+'%' });
+    }
+    map[asin] = { rows };
+  });
+  return map;
+}
+
+function generateDemoAdsData(days, mode) {
+  const headers = ['Date','Campaign Name','Impressions','Clicks','CTR','CPC','Spend','Sales','ACOS'];
+  const rows = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(2026, 2, 12 + i);
+    let baseImpressions = 3000 + Math.floor(Math.random()*2000) + i*50;
+    let baseCTR = 0.004 + Math.random()*0.003;
+    let baseCPC = 0.5 + Math.random()*0.8;
+    if (mode === 'before') { baseImpressions = 2500 + Math.floor(Math.random()*1500) + i*30; baseCTR = 0.003 + Math.random()*0.002; baseCPC = 0.6 + Math.random()*0.9; }
+    else if (mode === 'after') { baseImpressions = 4000 + Math.floor(Math.random()*2500) + i*70; baseCTR = 0.005 + Math.random()*0.004; baseCPC = 0.45 + Math.random()*0.6; }
+    else if (mode === 'yoyLast') { baseImpressions = 2000 + Math.floor(Math.random()*1500) + i*20; baseCTR = 0.003 + Math.random()*0.002; baseCPC = 0.35 + Math.random()*0.4; }
+    else if (mode === 'yoyThis') { baseImpressions = 3500 + Math.floor(Math.random()*2500) + i*60; baseCTR = 0.005 + Math.random()*0.003; baseCPC = 0.55 + Math.random()*0.7; }
+    const impressions = Math.round(baseImpressions);
+    const clicks = Math.round(impressions * baseCTR);
+    const ctr = (clicks/impressions*100).toFixed(2);
+    const cpc = baseCPC.toFixed(2);
+    const spend = (clicks * parseFloat(cpc)).toFixed(2);
+    const adSales = (parseFloat(spend) * (2 + Math.random()*3 + i*0.05)).toFixed(2);
+    const acos = (parseFloat(spend)/Math.max(0.01,parseFloat(adSales))*100).toFixed(1);
+    rows.push({ Date: d.toISOString().split('T')[0], 'Campaign Name': 'Pants-Wide-Leg-Broad', Impressions: impressions, Clicks: clicks, CTR: ctr + '%', CPC: cpc, Spend: spend, Sales: adSales, ACOS: acos + '%' });
+  }
+  return { headers, rows };
+}
+
+// ========== v3.0 核心：产品总览渲染 ==========
+function renderProductOverview() {
+  const el = document.getElementById('productsContent');
+  if (!el) return;
+
+  if (appState.dataType !== 'byAsin' || Object.keys(appState.asinMap).length === 0) {
+    el.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:40px;margin-bottom:8px;">📦</div><p>暂无产品数据</p><p style="font-size:12px;">请先上传"按ASIN"维度的 Business Report，或加载演示数据</p></div>';
+    return;
+  }
+
+  const asins = appState.selectedAsins.length ? appState.selectedAsins : Object.keys(appState.asinMap);
+  const kpis = [];
+  asins.forEach(asin => {
+    const info = appState.asinMap[asin];
+    if (info) { const k = calcProductKPI(info); if (k) kpis.push(k); }
+  });
+
+  // 排序
+  kpis.sort((a, b) => {
+    const av = a[appState.sortField] || 0;
+    const bv = b[appState.sortField] || 0;
+    return appState.sortDir === 'desc' ? bv - av : av - bv;
+  });
+
+  // 汇总KPI
+  const totalSessions = kpis.reduce((s,k) => s + k.sessions, 0);
+  const avgCVR = kpis.reduce((s,k) => s + k.cvr, 0) / kpis.length;
+  const totalSales = kpis.reduce((s,k) => s + k.sales, 0);
+  const goodCount = kpis.filter(k => k.health === 'good').length;
+  const warnCount = kpis.filter(k => k.health === 'warn').length;
+  const badCount = kpis.filter(k => k.health === 'bad').length;
+
+  let html = '';
+
+  // 汇总卡片
+  html += '<div class="grid grid-5"><div class="card kpi"><div class="label">📦 产品数</div><div class="value" style="color:var(--primary);">' + kpis.length + '</div></div>';
+  html += '<div class="card kpi"><div class="label">📊 总会话</div><div class="value" style="color:var(--info);font-size:28px;">' + totalSessions.toLocaleString() + '</div></div>';
+  html += '<div class="card kpi"><div class="label">👁️ 平均CVR</div><div class="value" style="color:var(--success);font-size:28px;">' + avgCVR.toFixed(1) + '%</div></div>';
+  html += '<div class="card kpi"><div class="label">💰 总销售额</div><div class="value" style="color:var(--warning);font-size:28px;">' + getCurrency() + totalSales.toFixed(0) + '</div></div>';
+  html += '<div class="card kpi"><div class="label">🎯 视觉健康</div><div class="value" style="font-size:20px;"><span style="color:#22c55e;">🟢' + goodCount + '</span> <span style="color:#f59e0b;">🟡' + warnCount + '</span> <span style="color:#ef4444;">🔴' + badCount + '</span></div></div></div>';
+
+  // 产品对比图
+  if (kpis.length > 1) {
+    html += '<div class="card" style="margin-top:20px;"><h3><span class="icon">📊</span> 多产品关键指标对比</h3><canvas id="chartProductCompare" height="300"></canvas></div>';
+  }
+
+  // 产品表格
+  html += '<div class="card" style="margin-top:20px;"><h3><span class="icon">🏷️</span> 产品详细数据</h3>';
+  html += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">点击表头排序 | 点击产品行进入新品追踪页查看详情 | 点击👤分配设计师 | 趋势 = 后半段 vs 前半段</p>';
+  html += '<table class="product-table"><tr>';
+  html += '<th onclick="sortProducts(\'health\')">健康</th>';
+  html += '<th onclick="sortProducts(\'asin\')">ASIN</th>';
+  html += '<th onclick="sortProducts(\'title\')">产品名称</th>';
+  html += '<th onclick="sortProducts(\'sessions\')">会话数 ▾</th>';
+  html += '<th onclick="sortProducts(\'cvr\')">CVR</th>';
+  html += '<th onclick="sortProducts(\'sales\')">销售额</th>';
+  html += '<th>趋势</th>';
+  html += '<th onclick="sortProducts(\'pvPerSession\')">PV/Session</th>';
+  html += '<th onclick="sortProducts(\'units\')">订购数</th>';
+  html += '<th>设计师</th>';
+  html += '</tr>';
+
+  kpis.forEach(k => {
+    const designer = appState.designerMap[k.asin] || '';
+    const healthIcon = k.health === 'good' ? '🟢' : (k.health === 'warn' ? '🟡' : '🔴');
+    // 趋势小标签
+    const trendHtml = formatTrend(k.sessionsChg, k.cvrChg, k.salesChg);
+    html += '<tr onclick="selectProduct(\'' + k.asin + '\')">';
+    html += '<td><span class="health-dot ' + k.health + '"></span>' + healthIcon + '</td>';
+    html += '<td class="asin-cell">' + k.asin + '</td>';
+    html += '<td class="title-cell" title="' + (k.title || '').replace(/"/g, '&quot;') + '">' + (k.title || k.asin) + '</td>';
+    html += '<td style="font-weight:600;">' + k.sessions.toLocaleString() + '</td>';
+    html += '<td class="' + (k.cvr >= 10 ? 'positive' : (k.cvr < 6 ? 'negative' : '')) + '">' + k.cvr.toFixed(1) + '%</td>';
+    html += '<td>' + getCurrency() + k.sales.toFixed(0) + '</td>';
+    html += '<td>' + trendHtml + '</td>';
+    html += '<td>' + k.pvPerSession.toFixed(1) + '</td>';
+    html += '<td>' + k.units + '</td>';
+    html += '<td><span style="cursor:pointer;font-size:12px;padding:2px 8px;border-radius:4px;background:' + (designer ? 'rgba(99,102,241,0.1)' : 'rgba(148,163,184,0.1)') + ';color:' + (designer ? 'var(--primary)' : '#94a3b8') + ';" onclick="event.stopPropagation();assignDesigner(\'' + k.asin + '\')">' + (designer || '👤 +') + '</span></td>';
+    html += '</tr>';
+  });
+  html += '</table></div>';
+
+  el.innerHTML = html;
+
+  // 多产品对比图
+  if (kpis.length > 1) {
+    const canvas = document.getElementById('chartProductCompare');
+    if (canvas) {
+      if (appState.charts.chartProductCompare) appState.charts.chartProductCompare.destroy();
+      const ctx = canvas.getContext('2d');
+      const labels = kpis.map(k => (k.title || k.asin).substring(0, 20));
+      appState.charts.chartProductCompare = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: '会话数', data: kpis.map(k => k.sessions), backgroundColor: 'rgba(59,130,246,0.6)', borderColor: '#3b82f6', borderWidth: 1, yAxisID: 'y' },
+            { label: 'CVR(%)', data: kpis.map(k => k.cvr), backgroundColor: 'rgba(34,197,94,0.6)', borderColor: '#22c55e', borderWidth: 1, yAxisID: 'y1' },
+            { label: '销售额', data: kpis.map(k => k.sales), type: 'line', borderColor: '#f59e0b', borderWidth: 2, pointRadius: 4, tension: 0.3, yAxisID: 'y2' },
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: {
+            y: { position: 'left', title: { display: true, text: '会话数' }, beginAtZero: true },
+            y1: { position: 'right', title: { display: true, text: 'CVR(%)' }, grid: { drawOnChartArea: false }, beginAtZero: true },
+            y2: { position: 'right', title: { display: true, text: '销售额' }, grid: { drawOnChartArea: false }, display: false },
+          }
+        }
+      });
+    }
+  }
+}
+
+function sortProducts(field) {
+  if (appState.sortField === field) {
+    appState.sortDir = appState.sortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    appState.sortField = field;
+    appState.sortDir = 'desc';
+  }
+  renderProductOverview();
+}
+
+function selectProduct(asin) {
+  // 设置筛选器并跳转到新品追踪
+  document.getElementById('asinFilter').value = asin;
+  appState.selectedAsins = [asin];
+  if (appState.bizData) renderDashboard(appState.bizData);
+  if (appState.adsData) renderAdsData(appState.adsData);
+  switchTab('dashboard');
+}
+
+// ========== 数据概览 ==========
+function showDataOverview(type, data) {
+  const el = document.getElementById('dataOverview');
+  const entries = [];
+  if (appState.bizData) {
+    const dtBadge = appState.dataType === 'byAsin' ? '<span class="data-type-badge by-asin">按ASIN</span>' : '<span class="data-type-badge by-date">按日期</span>';
+    entries.push({ label: '📊 Business Report ' + dtBadge, count: appState.bizData.rows.length, fields: appState.bizData.headers.length, date: findField(appState.bizData.rows[appState.bizData.rows.length-1] || {}, ['Date','日期']) || '—' });
+  }
+  if (appState.adsData) entries.push({ label: '📢 广告报表', count: appState.adsData.rows.length, fields: appState.adsData.headers.length, date: findField(appState.adsData.rows[appState.adsData.rows.length-1] || {}, ['Date','日期']) || '—' });
+  if (appState.yoyLastBiz) entries.push({ label: '📅 去年BR（同比）', count: appState.yoyLastBiz.rows.length, fields: appState.yoyLastBiz.headers.length, date: findField(appState.yoyLastBiz.rows[appState.yoyLastBiz.rows.length-1] || {}, ['Date','日期']) || '—' });
+  if (appState.yoyThisBiz) entries.push({ label: '📅 今年BR（同比）', count: appState.yoyThisBiz.rows.length, fields: appState.yoyThisBiz.headers.length, date: findField(appState.yoyThisBiz.rows[appState.yoyThisBiz.rows.length-1] || {}, ['Date','日期']) || '—' });
+  if (appState.beforeData) entries.push({ label: '🔴 优化前BR', count: appState.beforeData.rows.length, fields: appState.beforeData.headers.length, date: findField(appState.beforeData.rows[appState.beforeData.rows.length-1] || {}, ['Date','日期']) || '—' });
+  if (appState.afterData) entries.push({ label: '🟢 优化后BR', count: appState.afterData.rows.length, fields: appState.afterData.headers.length, date: findField(appState.afterData.rows[appState.afterData.rows.length-1] || {}, ['Date','日期']) || '—' });
+
+  if (entries.length === 0) { el.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;"><div style="font-size:40px;margin-bottom:8px;">📭</div><p>暂无数据导入</p></div>'; return; }
+
+  let html = '<table class="data-table"><tr><th>数据集</th><th>行数</th><th>字段数</th><th>最新日期</th></tr>';
+  entries.forEach(e => { html += '<tr><td>' + e.label + '</td><td>' + e.count + '</td><td>' + e.fields + '</td><td>' + e.date + '</td></tr>'; });
+  html += '</table>';
+  if (appState.dataType === 'byAsin') html += '<div style="margin-top:8px;font-size:12px;color:#16a34a;">✅ 已识别 ' + Object.keys(appState.asinMap).length + ' 个产品（按ASIN维度） → 前往「产品总览」查看</div>';
+  html += '<div style="margin-top:4px;font-size:12px;color:#16a34a;">✅ 已导入 ' + entries.length + ' 个数据集</div>';
+  el.innerHTML = html;
+}
+
+// ========== 新品看板渲染（支持ASIN筛选） ==========
+function renderDashboard(data) {
+  const periodDays = parseInt(document.getElementById('periodSelect').value) || 30;
+  let rows;
+
+  // v3.0: 如果按ASIN数据且选了特定产品，用该产品的数据
+  if (appState.dataType === 'byAsin' && appState.selectedAsins.length === 1 && appState.asinMap[appState.selectedAsins[0]]) {
+    const asinInfo = appState.asinMap[appState.selectedAsins[0]];
+    rows = asinInfo.rows.sort((a, b) => (findField(a, ['Date','日期']) || '').localeCompare(findField(b, ['Date','日期']) || '')).slice(-periodDays);
+  } else if (appState.dataType === 'byAsin' && appState.selectedAsins.length > 1) {
+    // 多产品选中：用汇总数据
+    let allRows = [];
+    appState.selectedAsins.forEach(asin => {
+      if (appState.asinMap[asin]) allRows = allRows.concat(appState.asinMap[asin].rows);
+    });
+    // 按日期汇总
+    const dateMap = {};
+    allRows.forEach(r => {
+      const d = findField(r, ['Date','日期']) || '';
+      if (!dateMap[d]) dateMap[d] = [];
+      dateMap[d].push(r);
+    });
+    rows = Object.entries(dateMap).map(([date, dayRows]) => ({
+      Date: date,
+      Sessions: dayRows.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0),
+      'Page Views': dayRows.reduce((s,r) => s + getNum(r,'Page Views','页面浏览'), 0),
+      'Unit Session Percentage': (dayRows.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / dayRows.length).toFixed(1),
+      'Ordered Product Sales': dayRows.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0).toFixed(2),
+      'Units Ordered': dayRows.reduce((s,r) => s + getNum(r,'Units Ordered','订购'), 0),
+    })).sort((a,b) => a.Date.localeCompare(b.Date)).slice(-periodDays);
+  } else {
+    rows = [...data.rows].sort((a, b) => (findField(a, ['Date','日期']) || '').localeCompare(findField(b, ['Date','日期']) || '')).slice(-periodDays);
+  }
+
+  if (!rows.length) return;
+
+  const totalSessions = rows.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0);
+  const totalPV = rows.reduce((s,r) => s + getNum(r,'Page Views','页面浏览'), 0);
+  const avgCVR = rows.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / rows.length;
+  const totalSales = rows.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0);
+  const totalUnits = rows.reduce((s,r) => s + getNum(r,'Units Ordered','订购'), 0);
+
+  const mid = Math.floor(rows.length / 2);
+  const firstHalf = rows.slice(0, mid);
+  const secondHalf = rows.slice(mid);
+  const sessions1 = firstHalf.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0);
+  const sessions2 = secondHalf.reduce((s,r) => s + getNum(r,'Sessions','会话'), 0);
+  const cvr1 = firstHalf.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / firstHalf.length;
+  const cvr2 = secondHalf.reduce((s,r) => s + getNum(r,'Unit Session Percentage','Unit Session','转化率'), 0) / secondHalf.length;
+  const pv1 = firstHalf.reduce((s,r) => s + getNum(r,'Page Views','页面浏览'), 0);
+  const pv2 = secondHalf.reduce((s,r) => s + getNum(r,'Page Views','页面浏览'), 0);
+  const sales1 = firstHalf.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0);
+  const sales2 = secondHalf.reduce((s,r) => s + getNum(r,'Ordered Product Sales','销售额'), 0);
+
+  document.getElementById('kpiSessions').textContent = totalSessions.toLocaleString();
+  document.getElementById('kpiCVR').textContent = avgCVR.toFixed(1) + '%';
+  document.getElementById('kpiPV').textContent = totalPV.toLocaleString();
+  document.getElementById('kpiSales').textContent = getCurrency() + totalSales.toFixed(0);
+
+  const sessionsChg = sessions1 ? ((sessions2-sessions1)/sessions1*100).toFixed(1) : 0;
+  const cvrChg = cvr1 ? ((cvr2-cvr1)/cvr1*100).toFixed(1) : 0;
+  const pvChg = pv1 ? ((pv2-pv1)/pv1*100).toFixed(1) : 0;
+  const salesChg = sales1 ? ((sales2-sales1)/sales1*100).toFixed(1) : 0;
+  setChange('kpiSessionsChange', sessionsChg, '%');
+  setChange('kpiCVRChange', cvrChg, '%');
+  setChange('kpiPVChange', pvChg, '%');
+  setChange('kpiSalesChange', salesChg, '%');
+
+  const labels = rows.map(r => findField(r,['Date','日期']) || '');
+  const sessionsArr = rows.map(r => getNum(r,'Sessions','会话'));
+  const cvrArr = rows.map(r => getNum(r,'Unit Session Percentage','Unit Session','转化率'));
+  const pvArr = rows.map(r => getNum(r,'Page Views','页面浏览'));
+  const unitsArr = rows.map(r => getNum(r,'Units Ordered','订购'));
+
+  renderDualChart('chartSessionsCVR', labels, sessionsArr, cvrArr, '会话数', '转化率(%)', '#3b82f6', '#22c55e');
+  renderDualChart('chartPvOrders', labels, pvArr, unitsArr, '页面浏览量', '订购数', '#f59e0b', '#8b5cf6');
+
+  renderVisualDiagnosis(avgCVR, totalSessions > 0 ? totalPV / totalSessions : 0, totalUnits / Math.max(1,totalSessions) * 100);
+}
+
+function renderAdsData(data) {
+  let rows = data.rows;
+  // v3.0: 按ASIN筛选广告数据
+  if (appState.dataType === 'byAsin' && appState.selectedAsins.length === 1 && appState.asinAdsMap[appState.selectedAsins[0]]) {
+    rows = appState.asinAdsMap[appState.selectedAsins[0]].rows;
+  }
+  const totalImpressions = rows.reduce((s,r) => s + getNum(r,'Impressions','曝光'), 0);
+  const totalClicks = rows.reduce((s,r) => s + getNum(r,'Clicks','点击'), 0);
+  const totalSpend = rows.reduce((s,r) => s + getNum(r,'Spend','花费'), 0);
+  const totalAdSales = rows.reduce((s,r) => s + getNum(r,'Sales','销售额'), 0);
+  const avgCTR = totalImpressions ? (totalClicks/totalImpressions*100) : 0;
+  const avgACOS = totalAdSales ? (totalSpend/totalAdSales*100) : 0;
+  const avgCPC = totalClicks ? (totalSpend/totalClicks) : 0;
+
+  document.getElementById('kpiImpressions').textContent = totalImpressions.toLocaleString();
+  document.getElementById('kpiCTR').textContent = avgCTR.toFixed(2) + '%';
+  document.getElementById('kpiACOS').textContent = avgACOS.toFixed(1) + '%';
+  document.getElementById('kpiSpend').textContent = getCurrency() + totalSpend.toFixed(0);
+  document.getElementById('kpiCPC').textContent = getCurrency() + avgCPC.toFixed(2);
+
+  const labels = rows.map(r => findField(r,['Date','日期']) || '');
+  const impressions = rows.map(r => getNum(r,'Impressions','曝光'));
+  const clicks = rows.map(r => getNum(r,'Clicks','点击'));
+  const ctr = rows.map(r => getNum(r,'CTR','点击率'));
+  const cpc = rows.map(r => getNum(r,'CPC'));
+
+  if (appState.charts.chartAds) appState.charts.chartAds.destroy();
+  const ctx = document.getElementById('chartAds').getContext('2d');
+  appState.charts.chartAds = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: '曝光量', data: impressions, backgroundColor: 'rgba(59,130,246,0.3)', borderColor: '#3b82f6', borderWidth: 1, yAxisID: 'y' },
+      { label: '点击数', data: clicks, backgroundColor: 'rgba(245,158,11,0.6)', borderColor: '#f59e0b', borderWidth: 1, yAxisID: 'y1' },
+      { label: 'CTR(%)', data: ctr, type: 'line', borderColor: '#ef4444', borderWidth: 2, pointRadius: 2, tension: 0.3, yAxisID: 'y2' },
+    ]},
+    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: {
+      y: { position: 'left', title: { display: true, text: '曝光量' } },
+      y1: { position: 'right', title: { display: true, text: '点击数' }, grid: { drawOnChartArea: false } },
+      y2: { position: 'right', title: { display: true, text: 'CTR(%)' }, grid: { drawOnChartArea: false }, display: false }
+    }}
+  });
+}
+
+// ========== 环比分析 ==========
+function renderQoqAnalysis() {
+  const bizData = appState.bizData;
+  const adsData = appState.adsData;
+  if (!bizData && !adsData) return;
+  const periodDays = parseInt(document.getElementById('periodSelect').value) || 30;
+
+  const calcPeriodComparison = (data, fieldNames, isRate) => {
+    if (!data || !data.rows.length) return null;
+    const sortedRows = [...data.rows].sort((a,b) => (findField(a,['Date','日期'])||'').localeCompare(findField(b,['Date','日期'])||''));
+    const recentRows = sortedRows.slice(-periodDays);
+    if (recentRows.length < 2) return null;
+    const mid = Math.floor(recentRows.length / 2);
+    const prevPeriod = recentRows.slice(0, mid);
+    const currPeriod = recentRows.slice(mid);
+    let prevVal, currVal;
+    if (isRate) { prevVal = prevPeriod.reduce((s,r)=>s+getNum(r,...fieldNames),0)/prevPeriod.length; currVal = currPeriod.reduce((s,r)=>s+getNum(r,...fieldNames),0)/currPeriod.length; }
+    else { prevVal = prevPeriod.reduce((s,r)=>s+getNum(r,...fieldNames),0); currVal = currPeriod.reduce((s,r)=>s+getNum(r,...fieldNames),0); }
+    const change = prevVal ? ((currVal-prevVal)/prevVal*100) : 0;
+    return { prev: prevVal, curr: currVal, change, prevCount: prevPeriod.length, currCount: currPeriod.length };
+  };
+
+  const ctrQoq = adsData ? calcPeriodComparison(adsData, ['CTR','点击率'], true) : null;
+  if (ctrQoq) { document.getElementById('qoqCTR').textContent = ctrQoq.curr.toFixed(2)+'%'; setChangeQoq('qoqCTRChange', ctrQoq.change); const pl = getPeriodLabel(ctrQoq.prevCount,ctrQoq.currCount); document.getElementById('qoqCTRDetail').innerHTML = `前${pl}: ${ctrQoq.prev.toFixed(2)}% → 后${pl}: ${ctrQoq.curr.toFixed(2)}%<br>主图吸引力变化`; }
+
+  const cvrQoq = bizData ? (()=>{const r=calcPeriodComparison(bizData,['Unit Session Percentage','Unit Session','转化率'],true);if(r){document.getElementById('qoqCVR').textContent=r.curr.toFixed(1)+'%';setChangeQoq('qoqCVRChange',r.change);const pl=getPeriodLabel(r.prevCount,r.currCount);document.getElementById('qoqCVRDetail').innerHTML=`前${pl}: ${r.prev.toFixed(1)}% → 后${pl}: ${r.curr.toFixed(1)}%<br>详情页说服力变化`;}return r;})() : null;
+
+  const volQoq = bizData ? (()=>{const r=calcPeriodComparison(bizData,['Sessions','会话'],false);if(r){document.getElementById('qoqVol').textContent=r.curr.toLocaleString();setChangeQoq('qoqVolChange',r.change);const pl=getPeriodLabel(r.prevCount,r.currCount);document.getElementById('qoqVolDetail').innerHTML=`前${pl}: ${r.prev.toLocaleString()} → 后${pl}: ${r.curr.toLocaleString()}<br>整体曝光效果`;}return r;})() : null;
+
+  const spendQoq = adsData ? (()=>{const r=calcPeriodComparison(adsData,['Spend','花费'],false);if(r){document.getElementById('qoqSpend').textContent=getCurrency()+r.curr.toFixed(0);setChangeQoq('qoqSpendChange',r.change);const pl=getPeriodLabel(r.prevCount,r.currCount);document.getElementById('qoqSpendDetail').innerHTML=`前${pl}: ${getCurrency()}${r.prev.toFixed(0)} → 后${pl}: ${getCurrency()}${r.curr.toFixed(0)}<br>花费效率`;}return r;})() : null;
+
+  const cpcQoq = adsData ? (()=>{if(!adsData||!adsData.rows.length)return null;const rows=[...adsData.rows].sort((a,b)=>(findField(a,['Date','日期'])||'').localeCompare(findField(b,['Date','日期'])||'')).slice(-periodDays);const mid=Math.floor(rows.length/2);const prev=rows.slice(0,mid),curr=rows.slice(mid);const pSpend=prev.reduce((s,r)=>s+getNum(r,'Spend','花费'),0),pClicks=prev.reduce((s,r)=>s+getNum(r,'Clicks','点击'),0);const cSpend=curr.reduce((s,r)=>s+getNum(r,'Spend','花费'),0),cClicks=curr.reduce((s,r)=>s+getNum(r,'Clicks','点击'),0);const prevCPC=pClicks?pSpend/pClicks:0,currCPC=cClicks?cSpend/cClicks:0;const change=prevCPC?((currCPC-prevCPC)/prevCPC*100):0;document.getElementById('qoqCPC').textContent=getCurrency()+currCPC.toFixed(2);setChangeQoq('qoqCPCChange',change);const pl=getPeriodLabel(prev.length,curr.length);document.getElementById('qoqCPCDetail').innerHTML=`前${pl}: ${getCurrency()}${prevCPC.toFixed(2)} → 后${pl}: ${getCurrency()}${currCPC.toFixed(2)}<br>竞争激烈度`;return{prev:prevCPC,curr:currCPC,change,prevCount:prev.length,currCount:curr.length};})() : null;
+
+  if (adsData) {
+    const rows=[...adsData.rows].sort((a,b)=>(findField(a,['Date','日期'])||'').localeCompare(findField(b,['Date','日期'])||'')).slice(-periodDays);
+    const labels=rows.map(r=>{const ds=findField(r,['Date','日期'])||'';return ds.length>=10?ds.slice(5,10):ds;});
+    const ctrArr=rows.map(r=>getNum(r,'CTR','点击率'));
+    const cvrArr=bizData?[...bizData.rows].sort((a,b)=>(findField(a,['Date','日期'])||'').localeCompare(findField(b,['Date','日期'])||'')).slice(-periodDays).map(r=>getNum(r,'Unit Session Percentage','Unit Session','转化率')):[];
+    const spendArr=rows.map(r=>getNum(r,'Spend','花费'));
+    const cpcArr=rows.map(r=>getNum(r,'CPC'));
+
+    if(appState.charts.chartQoqCTRCVR)appState.charts.chartQoqCTRCVR.destroy();
+    appState.charts.chartQoqCTRCVR=new Chart(document.getElementById('chartQoqCTRCVR').getContext('2d'),{type:'line',data:{labels,datasets:[{label:'CTR(%)',data:ctrArr,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,borderWidth:2,pointRadius:3,yAxisID:'y'},...(cvrArr.length?[{label:'CVR(%)',data:cvrArr,borderColor:'#22c55e',backgroundColor:'transparent',borderDash:[5,3],tension:0.3,borderWidth:2,pointRadius:3,yAxisID:'y1'}]:[])]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top'}},scales:{y:{position:'left',title:{display:true,text:'CTR(%)'},beginAtZero:true},y1:{position:'right',title:{display:true,text:'CVR(%)'},grid:{drawOnChartArea:false},beginAtZero:true}}}});
+
+    if(appState.charts.chartQoqSpendCPC)appState.charts.chartQoqSpendCPC.destroy();
+    appState.charts.chartQoqSpendCPC=new Chart(document.getElementById('chartQoqSpendCPC').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'广告花费',data:spendArr,backgroundColor:'rgba(239,68,68,0.4)',borderColor:'#ef4444',borderWidth:1,yAxisID:'y'},{label:'CPC',data:cpcArr,type:'line',borderColor:'#8b5cf6',borderWidth:2,pointRadius:3,tension:0.3,yAxisID:'y1'}]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top'}},scales:{y:{position:'left',title:{display:true,text:'花费'},beginAtZero:true},y1:{position:'right',title:{display:true,text:'CPC'},grid:{drawOnChartArea:false},beginAtZero:true}}}});
+  }
+
+  const tbody=document.getElementById('qoqTable');
+  let tableHtml='<tr><th>指标</th><th>上周期</th><th>本周期</th><th>变化值</th><th>环比%</th><th>趋势</th><th>视觉解读</th></tr>';
+  [{name:'CTR 点击率',qoq:ctrQoq,visual:'主图/广告图吸引力',fmt:v=>v.toFixed(2)+'%'},{name:'CVR 转化率',qoq:cvrQoq,visual:'详情页视觉说服力',fmt:v=>v.toFixed(1)+'%'},{name:'会话数（流量）',qoq:volQoq,visual:'整体曝光效果',fmt:v=>v.toLocaleString()},{name:'广告花费',qoq:spendQoq,visual:'投入效率',fmt:v=>getCurrency()+v.toFixed(0)},{name:'CPC 单次点击成本',qoq:cpcQoq,visual:'竞争激烈度/广告图效率',fmt:v=>getCurrency()+v.toFixed(2)}].forEach(m=>{if(!m.qoq)return;const diff=m.qoq.curr-m.qoq.prev;const pct=m.qoq.change;const pctClass=pct>0?'positive':(pct<0?'negative':'');const trend=pct>5?'📈 上升':(pct<-5?'📉 下降':'➡️ 平稳');tableHtml+=`<tr><td class="highlight">${m.name}</td><td>${m.fmt(m.qoq.prev)}</td><td>${m.fmt(m.qoq.curr)}</td><td class="${pctClass}">${diff>0?'+':''}${m.fmt(diff)}</td><td class="${pctClass}">${pct>0?'+':''}${pct.toFixed(1)}%</td><td>${trend}</td><td style="font-size:12px;color:var(--text-secondary);">${m.visual}</td></tr>`;});
+  tbody.innerHTML=tableHtml;
+}
+
+function getPeriodLabel(p,c){if(p<=7&&c<=7)return'周';if(p<=14&&c<=14)return'半月';return'月';}
+function setChangeQoq(id,pct){const el=document.getElementById(id);if(pct>0){el.className='qoq-change up';el.textContent='↑ +'+pct.toFixed(1)+'%';}else if(pct<0){el.className='qoq-change down';el.textContent='↓ '+pct.toFixed(1)+'%';}else{el.className='qoq-change flat';el.textContent='— 持平';}}
+
+// ========== 环比/同比模式切换 ==========
+function switchQoqMode(mode) {
+  appState.qoqMode = mode;
+  const btnQoq=document.getElementById('btnQoqMode'),btnYoy=document.getElementById('btnYoyMode');
+  const yoyExp=document.getElementById('yoyExplanation'),yoyUp=document.getElementById('yoyUpload'),yoyChart=document.getElementById('yoyChartSection'),yoyStatus=document.getElementById('yoyStatus');
+  if(mode==='qoq'){btnQoq.style.background='var(--primary)';btnQoq.style.color='#fff';btnYoy.style.background='rgba(99,102,241,0.06)';btnYoy.style.color='var(--primary)';yoyExp.style.display='none';yoyUp.style.display='none';yoyChart.style.display='none';yoyStatus.style.display='none';document.getElementById('qoqCTRLabel').textContent='点击率环比';document.getElementById('qoqCVRLabel').textContent='转化率环比';document.getElementById('qoqVolLabel').textContent='流量环比';document.getElementById('qoqSpendLabel').textContent='广告花费环比';document.getElementById('qoqCPCLabel').textContent='CPC环比';document.getElementById('qoqTableTitle').textContent='环比详细数据';document.getElementById('qoqPctHeader').textContent='环比%';document.getElementById('qoqChartTitle1').textContent='CTR & CVR 环比趋势';document.getElementById('qoqChartTitle2').textContent='花费 & CPC 环比趋势';renderQoqAnalysis();}
+  else{btnYoy.style.background='var(--primary)';btnYoy.style.color='#fff';btnQoq.style.background='rgba(99,102,241,0.06)';btnQoq.style.color='var(--primary)';yoyExp.style.display='block';yoyUp.style.display='block';yoyStatus.style.display='block';document.getElementById('qoqCTRLabel').textContent='点击率同比';document.getElementById('qoqCVRLabel').textContent='转化率同比';document.getElementById('qoqVolLabel').textContent='流量同比';document.getElementById('qoqSpendLabel').textContent='广告花费同比';document.getElementById('qoqCPCLabel').textContent='CPC同比';document.getElementById('qoqTableTitle').textContent='同比详细数据';document.getElementById('qoqPctHeader').textContent='同比%';document.getElementById('qoqChartTitle1').textContent='CTR & CVR 同比对比';document.getElementById('qoqChartTitle2').textContent='花费 & CPC 同比对比';refreshYoyStatus();renderYoyAnalysis();}
+}
+
+function updateYoyUploadStatus(slot, data) {
+  const map={lastBiz:{id:'yoyStatusLastBiz',label:'去年 BR'},lastAds:{id:'yoyStatusLastAds',label:'去年广告'},thisBiz:{id:'yoyStatusThisBiz',label:'今年 BR'},thisAds:{id:'yoyStatusThisAds',label:'今年广告'}};
+  const info=map[slot];if(!info)return;
+  const el=document.getElementById(info.id);if(el){el.style.background='#f0fdf4';el.innerHTML=`✅ ${info.label} — 已导入 ${data.rows.length} 行`;}
+  refreshYoyStatus();
+}
+function refreshYoyStatus(){const hasBiz=(appState.yoyLastBiz&&appState.yoyThisBiz);const hasAds=(appState.yoyLastAds&&appState.yoyThisAds);const hint=document.getElementById('yoyReadyHint');if(hint){if(hasBiz||hasAds){hint.innerHTML='✅ 数据已足够生成同比分析'+(hasBiz&&hasAds?'（齐全）':'');hint.style.color='#16a34a';}else{hint.innerHTML='💡 至少需要去年和今年各一份报表';hint.style.color='#94a3b8';}}}
+function updateCompareStatus(slot,data,isAds){const elId=slot==='before'?'compareStatusBefore':'compareStatusAfter';const el=document.getElementById(elId);if(!el)return;const bizOk=slot==='before'?!!appState.beforeData:!!appState.afterData;const adsOk=slot==='before'?!!appState.beforeAdsData:!!appState.afterAdsData;let html='';html+=bizOk?'✅ Business Report 已导入':'⬜ Business Report 待上传';html+='<br>';html+=adsOk?'✅ 广告报表已导入':'⬜ 广告报表待上传（可选）';el.style.color=bizOk?'#16a34a':'#94a3b8';el.innerHTML=html;}
+
+// ========== 同比分析渲染 ==========
+function renderYoyAnalysis(){const lastBiz=appState.yoyLastBiz,thisBiz=appState.yoyThisBiz,lastAds=appState.yoyLastAds,thisAds=appState.yoyThisAds;if(!lastBiz&&!thisBiz&&!lastAds&&!thisAds)return;const calcBiz=(rows)=>{if(!rows||!rows.length)return null;return{sessions:rows.reduce((s,r)=>s+getNum(r,'Sessions','会话'),0),cvr:rows.reduce((s,r)=>s+getNum(r,'Unit Session Percentage','Unit Session','转化率'),0)/rows.length,pv:rows.reduce((s,r)=>s+getNum(r,'Page Views','页面浏览'),0),sales:rows.reduce((s,r)=>s+getNum(r,'Ordered Product Sales','销售额'),0),units:rows.reduce((s,r)=>s+getNum(r,'Units Ordered','订购'),0)};};const calcAds=(rows)=>{if(!rows||!rows.length)return null;const imp=rows.reduce((s,r)=>s+getNum(r,'Impressions','曝光'),0),clk=rows.reduce((s,r)=>s+getNum(r,'Clicks','点击'),0),spend=rows.reduce((s,r)=>s+getNum(r,'Spend','花费'),0),adSales=rows.reduce((s,r)=>s+getNum(r,'Sales','销售额'),0);return{impressions:imp,clicks:clk,ctr:imp?(clk/imp*100):0,spend,cpc:clk?(spend/clk):0,acos:adSales?(spend/adSales*100):0,adSales};};const bBiz=calcBiz(lastBiz?lastBiz.rows:null),aBiz=calcBiz(thisBiz?thisBiz.rows:null),bAds=calcAds(lastAds?lastAds.rows:null),aAds=calcAds(thisAds?thisAds.rows:null);if(bAds&&aAds){const ctrChg=bAds.ctr?((aAds.ctr-bAds.ctr)/bAds.ctr*100):0;document.getElementById('qoqCTR').textContent=aAds.ctr.toFixed(2)+'%';setChangeQoq('qoqCTRChange',ctrChg);document.getElementById('qoqCTRDetail').innerHTML=`去年: ${bAds.ctr.toFixed(2)}% → 今年: ${aAds.ctr.toFixed(2)}%`;const spendChg=bAds.spend?((aAds.spend-bAds.spend)/bAds.spend*100):0;document.getElementById('qoqSpend').textContent=getCurrency()+aAds.spend.toFixed(0);setChangeQoq('qoqSpendChange',spendChg);const cpcChg=bAds.cpc?((aAds.cpc-bAds.cpc)/bAds.cpc*100):0;document.getElementById('qoqCPC').textContent=getCurrency()+aAds.cpc.toFixed(2);setChangeQoq('qoqCPCChange',cpcChg);}if(bBiz&&aBiz){const cvrChg=bBiz.cvr?((aBiz.cvr-bBiz.cvr)/bBiz.cvr*100):0;document.getElementById('qoqCVR').textContent=aBiz.cvr.toFixed(1)+'%';setChangeQoq('qoqCVRChange',cvrChg);const volChg=bBiz.sessions?((aBiz.sessions-bBiz.sessions)/bBiz.sessions*100):0;document.getElementById('qoqVol').textContent=aBiz.sessions.toLocaleString();setChangeQoq('qoqVolChange',volChg);}if(bBiz&&aBiz){document.getElementById('yoyChartSection').style.display='block';if(appState.charts.chartYoyCompare)appState.charts.chartYoyCompare.destroy();const labels=['会话数','CVR','页面浏览量','销售额'];const bizChanges=[bBiz.sessions?((aBiz.sessions-bBiz.sessions)/bBiz.sessions*100):0,bBiz.cvr?((aBiz.cvr-bBiz.cvr)/bBiz.cvr*100):0,bBiz.pv?((aBiz.pv-bBiz.pv)/bBiz.pv*100):0,bBiz.sales?((aBiz.sales-bBiz.sales)/bBiz.sales*100):0];const datasets=[{label:'业务指标同比变化(%)',data:bizChanges,backgroundColor:bizChanges.map(v=>v>=0?'rgba(34,197,94,0.6)':'rgba(239,68,68,0.6)'),borderColor:bizChanges.map(v=>v>=0?'#22c55e':'#ef4444'),borderWidth:1}];if(bAds&&aAds){const adsChanges=[bAds.ctr?((aAds.ctr-bAds.ctr)/bAds.ctr*100):0,bAds.cpc?((aAds.cpc-bAds.cpc)/bAds.cpc*100):0,bAds.spend?((aAds.spend-bAds.spend)/bAds.spend*100):0,bAds.acos?((aAds.acos-bAds.acos)/bAds.acos*100):0];datasets.push({label:'广告指标同比变化(%)',data:[...Array(4).fill(null),...adsChanges],backgroundColor:[...Array(4).fill(null),...adsChanges.map(v=>v>=0?'rgba(59,130,246,0.6)':'rgba(245,158,11,0.6)')],borderColor:[...Array(4).fill(null),...adsChanges.map(v=>v>=0?'#3b82f6':'#f59e0b')],borderWidth:1});labels.push('CTR','CPC','广告花费','ACOS');datasets[0].data.push(...Array(4).fill(null));}appState.charts.chartYoyCompare=new Chart(document.getElementById('chartYoyCompare').getContext('2d'),{type:'bar',data:{labels,datasets},options:{responsive:true,plugins:{legend:{position:'top'},tooltip:{callbacks:{label:function(ctx){const v=ctx.raw;if(v===null)return'';return ctx.dataset.label+': '+(v>=0?'+':'')+v.toFixed(1)+'%';}}}},scales:{y:{title:{display:true,text:'同比变化(%)'},grid:{color:ctx=>ctx.tick.value===0?'#666':'#e2e8f0'}}}}});}const tbody=document.getElementById('qoqTable');let tableHtml='<tr><th>指标</th><th>去年同月</th><th>今年同月</th><th>变化值</th><th>同比%</th><th>趋势</th><th>视觉解读</th></tr>';const yoyMetrics=[];if(bBiz&&aBiz)yoyMetrics.push({name:'会话数',b:bBiz.sessions,a:aBiz.sessions,visual:'整体曝光',fmt:v=>v.toLocaleString()},{name:'CVR',b:bBiz.cvr,a:aBiz.cvr,visual:'详情页说服力',fmt:v=>v.toFixed(1)+'%'},{name:'销售额',b:bBiz.sales,a:aBiz.sales,visual:'商业价值',fmt:v=>getCurrency()+v.toFixed(0)});if(bAds&&aAds)yoyMetrics.push({name:'CTR',b:bAds.ctr,a:aAds.ctr,visual:'主图吸引力',fmt:v=>v.toFixed(2)+'%'},{name:'CPC',b:bAds.cpc,a:aAds.cpc,visual:'竞争激烈度',fmt:v=>getCurrency()+v.toFixed(2)},{name:'ACOS',b:bAds.acos,a:aAds.acos,visual:'广告效率',fmt:v=>v.toFixed(1)+'%'});yoyMetrics.forEach(m=>{const diff=m.a-m.b;const pct=m.b?(diff/m.b*100):0;const pctClass=pct>0?'positive':(pct<0?'negative':'');const trend=pct>5?'📈':(pct<-5?'📉':'➡️');tableHtml+=`<tr><td class="highlight">${m.name}</td><td>${m.fmt(m.b)}</td><td>${m.fmt(m.a)}</td><td class="${pctClass}">${diff>0?'+':''}${m.fmt(diff)}</td><td class="${pctClass}">${pct>0?'+':''}${pct.toFixed(1)}%</td><td>${trend}</td><td style="font-size:12px;color:var(--text-secondary);">${m.visual}</td></tr>`;});tbody.innerHTML=tableHtml;if(lastAds&&thisAds){const labels=thisAds.rows.map((r,i)=>'Day '+(i+1));const lastCtr=lastAds.rows.map(r=>getNum(r,'CTR','点击率')),thisCtr=thisAds.rows.map(r=>getNum(r,'CTR','点击率'));if(appState.charts.chartQoqCTRCVR)appState.charts.chartQoqCTRCVR.destroy();appState.charts.chartQoqCTRCVR=new Chart(document.getElementById('chartQoqCTRCVR').getContext('2d'),{type:'line',data:{labels,datasets:[{label:'去年CTR(%)',data:lastCtr,borderColor:'#93c5fd',backgroundColor:'transparent',borderDash:[5,3],tension:0.3,borderWidth:2,pointRadius:2},{label:'今年CTR(%)',data:thisCtr,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,borderWidth:2,pointRadius:2}]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top'}},scales:{y:{title:{display:true,text:'CTR(%)'},beginAtZero:true}}}});if(appState.charts.chartQoqSpendCPC)appState.charts.chartQoqSpendCPC.destroy();const lastSpend=lastAds.rows.map(r=>getNum(r,'Spend','花费')),thisSpend=thisAds.rows.map(r=>getNum(r,'Spend','花费'));appState.charts.chartQoqSpendCPC=new Chart(document.getElementById('chartQoqSpendCPC').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'去年花费',data:lastSpend,backgroundColor:'rgba(239,68,68,0.3)',borderColor:'#fca5a5',borderWidth:1},{label:'今年花费',data:thisSpend,backgroundColor:'rgba(239,68,68,0.6)',borderColor:'#ef4444',borderWidth:1}]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});}}
+
+function loadQoqDemo(){appState.yoyLastBiz=generateDemoBizData(30,'yoyLast');appState.yoyThisBiz=generateDemoBizData(30,'yoyThis');appState.yoyLastAds=generateDemoAdsData(30,'yoyLast');appState.yoyThisAds=generateDemoAdsData(30,'yoyThis');switchQoqMode('yoy');renderYoyAnalysis();}
+
+// ========== 品类基准对比 ==========
+function renderBenchmarks(){const bm=getBenchmarks();document.getElementById('benchSiteLabel').textContent=SITE_CONFIG[appState.site]?.name||'美国站';const el=document.getElementById('benchmarkCards');if(!el)return;let currentCTR=null,currentCVR=null,currentACOS=null,currentCPC=null,currentPV=null;if(appState.adsData){const rows=appState.adsData.rows;const imp=rows.reduce((s,r)=>s+getNum(r,'Impressions','曝光'),0),clk=rows.reduce((s,r)=>s+getNum(r,'Clicks','点击'),0),spend=rows.reduce((s,r)=>s+getNum(r,'Spend','花费'),0),adSales=rows.reduce((s,r)=>s+getNum(r,'Sales','销售额'),0);currentCTR=imp?(clk/imp*100):null;currentACOS=adSales?(spend/adSales*100):null;currentCPC=clk?(spend/clk):null;}if(appState.bizData){const rows=appState.bizData.rows;currentCVR=rows.reduce((s,r)=>s+getNum(r,'Unit Session Percentage','Unit Session','转化率'),0)/rows.length;const sessions=rows.reduce((s,r)=>s+getNum(r,'Sessions','会话'),0),pv=rows.reduce((s,r)=>s+getNum(r,'Page Views','页面浏览'),0);currentPV=sessions?(pv/sessions):null;}const items=[{label:'CTR',current:currentCTR,bench:bm.ctr,unit:'%',higher:true},{label:'CVR',current:currentCVR,bench:bm.cvr,unit:'%',higher:true},{label:'ACOS',current:currentACOS,bench:bm.acos,unit:'%',higher:false},{label:'CPC',current:currentCPC,bench:bm.cpc,unit:getCurrency(),higher:false},{label:'PV/Session',current:currentPV,bench:bm.pvPerSession,unit:'',higher:true}];let html='';items.forEach(item=>{const hasData=item.current!==null;const currentDisplay=hasData?(item.unit==='%'||item.unit===''?item.current.toFixed(1)+item.unit:item.unit+item.current.toFixed(2)):'—';const benchDisplay=item.unit==='%'?item.bench.toFixed(1)+'%':(item.unit===''?item.bench.toFixed(1):item.unit+item.bench.toFixed(2));let status='';if(hasData){status=(item.higher?item.current>=item.bench:item.current<=item.bench)?'🟢 优于基准':'🔴 低于基准';}else status='⬜ 暂无数据';const isGood=hasData&&(item.higher?item.current>=item.bench:item.current<=item.bench);html+=`<div style="text-align:center;padding:12px;border-radius:8px;background:${hasData?(isGood?'#f0fdf4':'#fef2f2'):'#f8fafc'};border:1px solid ${hasData?(isGood?'#bbf7d0':'#fecaca'):'#e2e8f0'};"><div style="font-size:12px;color:var(--text-secondary);">${item.label}</div><div style="font-size:20px;font-weight:700;margin:4px 0;">${currentDisplay}</div><div style="font-size:11px;color:#94a3b8;">基准: ${benchDisplay}</div><div style="font-size:11px;margin-top:4px;">${status}</div></div>`;});el.innerHTML=html;}
+
+// ========== 视觉诊断 ==========
+function renderVisualDiagnosis(cvr,pvPerSession,orderRate){const el=document.getElementById('visualDiagnosis');let html='';if(cvr>=15)html+='<div class="diagnosis good"><strong>✅ 转化率优秀 ('+cvr.toFixed(1)+'%)</strong>详情页视觉说服力很强</div>';else if(cvr>=8)html+='<div class="diagnosis warn"><strong>⚠️ 转化率中等 ('+cvr.toFixed(1)+'%)</strong>建议：①增加场景穿搭图 ②补充面料细节 ③优化A+页面</div>';else html+='<div class="diagnosis bad"><strong>🔴 转化率偏低 ('+cvr.toFixed(1)+'%)</strong>重点优化：①主图→副图连贯性 ②前3张卖点图 ③尺寸/材质可视化</div>';if(pvPerSession>3)html+='<div class="diagnosis good"><strong>✅ 浏览深度好 ('+pvPerSession.toFixed(1)+' PV/Session)</strong></div>';else if(pvPerSession>2)html+='<div class="diagnosis warn"><strong>⚠️ 浏览深度一般 ('+pvPerSession.toFixed(1)+' PV/Session)</strong></div>';else html+='<div class="diagnosis bad"><strong>🔴 浏览深度低 ('+pvPerSession.toFixed(1)+' PV/Session)</strong></div>';let position='';if(cvr>=10&&pvPerSession>=2.5)position='🟢 <strong>表现优秀</strong>';else if(cvr>=10)position='🟡 <strong>主图OK·详情待优化</strong>';else position='🟡 <strong>有优化空间</strong>';document.getElementById('matrixPosition').innerHTML='📍 当前位置：<br>'+position;el.innerHTML=html;}
+
+// ========== 优化对比渲染 ==========
+function renderCompare(beforeData,afterData){document.getElementById('compareResults').style.display='none';document.getElementById('compareKPIs').style.display='block';const bRows=beforeData.rows,aRows=afterData.rows;const calcBiz=(rows)=>({sessions:rows.reduce((s,r)=>s+getNum(r,'Sessions','会话'),0),cvr:rows.reduce((s,r)=>s+getNum(r,'Unit Session Percentage','Unit Session','转化率'),0)/rows.length,sales:rows.reduce((s,r)=>s+getNum(r,'Ordered Product Sales','销售额'),0),units:rows.reduce((s,r)=>s+getNum(r,'Units Ordered','订购'),0),pv:rows.reduce((s,r)=>s+getNum(r,'Page Views','页面浏览'),0),buyBox:rows.reduce((s,r)=>s+getNum(r,'Buy Box Percentage','购物车'),0)/rows.length});const calcAds=(rows)=>({impressions:rows.reduce((s,r)=>s+getNum(r,'Impressions','曝光'),0),clicks:rows.reduce((s,r)=>s+getNum(r,'Clicks','点击'),0),spend:rows.reduce((s,r)=>s+getNum(r,'Spend','花费'),0),adSales:rows.reduce((s,r)=>s+getNum(r,'Sales','销售额'),0),ctr:rows.reduce((s,r)=>s+getNum(r,'CTR','点击率'),0)/rows.length,cpc:rows.reduce((s,r)=>s+getNum(r,'CPC'),0)/rows.length,acos:rows.reduce((s,r)=>s+getNum(r,'ACOS'),0)/rows.length});const b=calcBiz(bRows),a=calcBiz(aRows);const bAds=appState.beforeAdsData?calcAds(appState.beforeAdsData.rows):null,aAds=appState.afterAdsData?calcAds(appState.afterAdsData.rows):null;const pctChange=(before,after)=>before?((after-before)/before*100).toFixed(1):'—';document.getElementById('cmpSessions').textContent=a.sessions.toLocaleString();document.getElementById('cmpCVR').textContent=a.cvr.toFixed(1)+'%';document.getElementById('cmpSales').textContent=getCurrency()+a.sales.toFixed(0);document.getElementById('cmpUnits').textContent=a.units;setChange('cmpSessionsChange',pctChange(b.sessions,a.sessions),'%');setChange('cmpCVRChange',pctChange(b.cvr,a.cvr),'%');setChange('cmpSalesChange',pctChange(b.sales,a.sales),'%');setChange('cmpUnitsChange',pctChange(b.units,a.units),'%');if(bAds&&aAds){document.getElementById('cmpCTR').textContent=aAds.ctr.toFixed(2)+'%';setChange('cmpCTRChange',pctChange(bAds.ctr,aAds.ctr),'%');document.getElementById('cmpSpend').textContent=getCurrency()+aAds.spend.toFixed(0);setChange('cmpSpendChange',pctChange(bAds.spend,aAds.spend),'%');document.getElementById('cmpCPC').textContent=getCurrency()+aAds.cpc.toFixed(2);setChange('cmpCPCChange',pctChange(bAds.cpc,aAds.cpc),'%');document.getElementById('cmpACOS').textContent=aAds.acos.toFixed(1)+'%';setChange('cmpACOSChange',pctChange(bAds.acos,aAds.acos),'%');document.getElementById('cmpImpressions').textContent=aAds.impressions.toLocaleString();setChange('cmpImpressionsChange',pctChange(bAds.impressions,aAds.impressions),'%');}if(appState.charts.chartCompare)appState.charts.chartCompare.destroy();appState.charts.chartCompare=new Chart(document.getElementById('chartCompare').getContext('2d'),{type:'bar',data:{labels:['会话数','CVR(%)','销售额','订购数'],datasets:[{label:'优化前',data:[b.sessions,b.cvr,b.sales,b.units],backgroundColor:'rgba(239,68,68,0.6)',borderColor:'#ef4444',borderWidth:1},{label:'优化后',data:[a.sessions,a.cvr,a.sales,a.units],backgroundColor:'rgba(34,197,94,0.6)',borderColor:'#22c55e',borderWidth:1}]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});if(bAds&&aAds){if(appState.charts.chartCompareAds)appState.charts.chartCompareAds.destroy();appState.charts.chartCompareAds=new Chart(document.getElementById('chartCompareAds').getContext('2d'),{type:'bar',data:{labels:['CTR(%)','CPC','ACOS(%)','花费'],datasets:[{label:'优化前',data:[bAds.ctr,bAds.cpc,bAds.acos,bAds.spend],backgroundColor:'rgba(239,68,68,0.6)',borderColor:'#ef4444',borderWidth:1},{label:'优化后',data:[aAds.ctr,aAds.cpc,aAds.acos,aAds.spend],backgroundColor:'rgba(34,197,94,0.6)',borderColor:'#22c55e',borderWidth:1}]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});}const tableEl=document.getElementById('compareTable');const metrics=[{name:'会话数',before:b.sessions,after:a.sessions,visual:'流量入口'},{name:'CVR',before:b.cvr.toFixed(1)+'%',after:a.cvr.toFixed(1)+'%',rawBefore:b.cvr,rawAfter:a.cvr,visual:'详情页说服力'},{name:'销售额',before:getCurrency()+b.sales.toFixed(0),after:getCurrency()+a.sales.toFixed(0),rawBefore:b.sales,rawAfter:a.sales,visual:'商业价值'}];if(bAds&&aAds)metrics.push({name:'CTR',before:bAds.ctr.toFixed(2)+'%',after:aAds.ctr.toFixed(2)+'%',rawBefore:bAds.ctr,rawAfter:aAds.ctr,visual:'主图吸引力'},{name:'CPC',before:getCurrency()+bAds.cpc.toFixed(2),after:getCurrency()+aAds.cpc.toFixed(2),rawBefore:bAds.cpc,rawAfter:aAds.cpc,visual:'竞争激烈度'});let tableHtml='<tr><th>指标</th><th>优化前</th><th>优化后</th><th>变化幅度</th><th>视觉归因</th></tr>';metrics.forEach(m=>{const beforeNum=m.rawBefore||m.before;const afterNum=m.rawAfter||m.after;const chg=beforeNum?((afterNum-beforeNum)/beforeNum*100).toFixed(1):'—';const chgClass=parseFloat(chg)>0?'positive':(parseFloat(chg)<0?'negative':'');tableHtml+=`<tr><td class="highlight">${m.name}</td><td>${m.before}</td><td>${m.after}</td><td class="${chgClass}">${chg!=='—'?(parseFloat(chg)>0?'+':'')+chg+'%':'—'}</td><td style="font-size:12px;color:var(--text-secondary);">${m.visual}</td></tr>`;});tableEl.innerHTML=tableHtml;const diagEl=document.getElementById('compareDiagnosis');let diagHtml='';const cvrImprove=a.cvr-b.cvr;if(cvrImprove>3)diagHtml+='<div class="diagnosis good"><strong>🎉 视觉优化效果显著！</strong><br>转化率提升 '+cvrImprove.toFixed(1)+' 个百分点</div>';else if(cvrImprove>0)diagHtml+='<div class="diagnosis warn"><strong>📊 优化有一定效果</strong><br>转化率提升 '+cvrImprove.toFixed(1)+' 个百分点</div>';else diagHtml+='<div class="diagnosis bad"><strong>⚠️ 优化效果不明显</strong><br>转化率未提升</div>';diagHtml+='<div class="diagnosis info"><strong>💡 下一步建议</strong><br>① 继续观察2-4周数据<br>② 对比不同站点表现<br>③ A/B测试不同主图风格</div>';diagEl.innerHTML=diagHtml;}
+
+// ========== 工具函数 ==========
+function setChange(id,val,unit){const el=document.getElementById(id);const num=parseFloat(val);if(num>0){el.className='change up';el.textContent='↑ +'+val+unit;}else if(num<0){el.className='change down';el.textContent='↓ '+val+unit;}else{el.className='change flat';el.textContent='— '+val+unit;}}
+
+function renderDualChart(canvasId,labels,data1,data2,label1,label2,color1,color2){if(appState.charts[canvasId])appState.charts[canvasId].destroy();const ctx=document.getElementById(canvasId).getContext('2d');appState.charts[canvasId]=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:label1,data:data1,borderColor:color1,backgroundColor:color1+'20',fill:true,tension:0.3,borderWidth:2,pointRadius:2,yAxisID:'y'},{label:label2,data:data2,borderColor:color2,backgroundColor:'transparent',borderDash:[5,3],tension:0.3,borderWidth:2,pointRadius:2,yAxisID:'y1'}]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top'}},scales:{y:{position:'left',title:{display:true,text:label1},beginAtZero:true},y1:{position:'right',title:{display:true,text:label2},grid:{drawOnChartArea:false},beginAtZero:true}}}});}
+
+function exportReport(){let summary='📊 亚马逊视觉数据看板 — 数据报告摘要\n导出时间：'+new Date().toLocaleString('zh-CN')+'\n\n';if(appState.bizData){const rows=appState.bizData.rows;const sessions=rows.reduce((s,r)=>s+getNum(r,'Sessions','会话'),0);const cvr=rows.reduce((s,r)=>s+getNum(r,'Unit Session Percentage','Unit Session','转化率'),0)/rows.length;const sales=rows.reduce((s,r)=>s+getNum(r,'Ordered Product Sales','销售额'),0);summary+='📋 Business Report：\n  行数：'+rows.length+'\n  会话：'+sessions.toLocaleString()+'\n  CVR：'+cvr.toFixed(1)+'%\n  销售：'+getCurrency()+sales.toFixed(0)+'\n\n';}if(appState.dataType==='byAsin')summary+='🏷️ 按ASIN维度：'+Object.keys(appState.asinMap).length+'个产品\n\n';if(!appState.bizData&&!appState.adsData)summary+='⚠️ 尚未导入数据\n';summary+='━━━━━━━━━━━━\n💡 Ctrl+P 打印为PDF';alert(summary);window.print();}
+
+function exportCSV(){let csvContent='';csvContent+='亚马逊视觉数据看板 - 报告导出\n导出时间,'+new Date().toLocaleString('zh-CN')+'\n站点,'+(SITE_CONFIG[appState.site]?.name||'美国站')+'\n数据类型,'+(appState.dataType==='byAsin'?'按ASIN':'按日期')+'\n\n';if(appState.dataType==='byAsin'&&Object.keys(appState.asinMap).length>0){csvContent+='=== 产品总览 ===\nASIN,产品名称,设计师,会话数,CVR(%),销售额,PV/Session,健康度\n';Object.keys(appState.asinMap).forEach(asin=>{const k=calcProductKPI(appState.asinMap[asin]);if(!k)return;const designer=appState.designerMap[asin]||'';csvContent+='"'+asin+'","'+(k.title||'').replace(/"/g,'""')+'","'+designer+'",'+k.sessions+','+k.cvr.toFixed(1)+','+k.sales.toFixed(0)+','+k.pvPerSession.toFixed(1)+','+k.health+'\n';});csvContent+='\n';}if(appState.bizData){csvContent+='=== Business Report ===\n';const headers=appState.bizData.headers;csvContent+=headers.map(h=>'"'+h+'"').join(',')+'\n';appState.bizData.rows.forEach(row=>{csvContent+=headers.map(h=>'"'+(row[h]||'').replace(/"/g,'""')+'"').join(',')+'\n';});csvContent+='\n';}if(appState.adsData){csvContent+='=== 广告报表 ===\n';const headers=appState.adsData.headers;csvContent+=headers.map(h=>'"'+h+'"').join(',')+'\n';appState.adsData.rows.forEach(row=>{csvContent+=headers.map(h=>'"'+(row[h]||'').replace(/"/g,'""')+'"').join(',')+'\n';});}if(!appState.bizData&&!appState.adsData&&!appState.beforeData){alert('⚠️ 暂无可导出的数据');return;}const BOM='\uFEFF';const blob=new Blob([BOM+csvContent],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='亚马逊视觉数据看板_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);}
+
+function toggleDarkMode(){appState.darkMode=!appState.darkMode;document.body.classList.toggle('dark',appState.darkMode);const btn=document.getElementById('btnDarkMode');if(appState.darkMode){btn.textContent='☀️ 亮色';btn.style.background='rgba(248,250,252,0.9)';btn.style.color='#1e293b';}else{btn.textContent='🌙 暗色';btn.style.background='rgba(30,41,59,0.9)';btn.style.color='#fff';}localStorage.setItem('amazon_visual_dark',appState.darkMode?'1':'0');}
+
+function resetAllData(){if(!confirm('⚠️ 确定要清除所有数据吗？\n\n此操作不可恢复！'))return;appState.bizData=null;appState.adsData=null;appState.beforeData=null;appState.afterData=null;appState.beforeAdsData=null;appState.afterAdsData=null;appState.yoyLastBiz=null;appState.yoyLastAds=null;appState.yoyThisBiz=null;appState.yoyThisAds=null;appState.dataType=null;appState.asinMap={};appState.asinAdsMap={};appState.selectedAsins=[];appState.designerMap={};localStorage.removeItem('amazon_visual_dashboard_v3');document.getElementById('dataOverview').innerHTML='<div style="text-align:center;padding:30px;color:#94a3b8;"><div style="font-size:40px;margin-bottom:8px;">📭</div><p>暂无数据导入</p></div>';['kpiSessions','kpiCVR','kpiPV','kpiSales','kpiImpressions','kpiCTR','kpiACOS','kpiSpend','kpiCPC'].forEach(id=>{document.getElementById(id).textContent='—';});['kpiSessionsChange','kpiCVRChange','kpiPVChange','kpiSalesChange'].forEach(id=>{const el=document.getElementById(id);el.textContent='导入数据后显示';el.className='change flat';});document.getElementById('visualDiagnosis').innerHTML='<div class="diagnosis info"><strong>⏳ 等待数据导入</strong></div>';document.getElementById('matrixPosition').innerHTML='导入数据后显示';['qoqCTR','qoqCVR','qoqVol','qoqSpend','qoqCPC'].forEach(id=>{document.getElementById(id).textContent='—';});['qoqCTRChange','qoqCVRChange','qoqVolChange','qoqSpendChange','qoqCPCChange'].forEach(id=>{const el=document.getElementById(id);el.textContent='—';el.className='qoq-change flat';});document.getElementById('compareResults').style.display='block';document.getElementById('compareKPIs').style.display='none';Object.keys(appState.charts).forEach(key=>{if(appState.charts[key])appState.charts[key].destroy();});appState.charts={};updateProductSelector();renderBenchmarks();alert('✅ 所有数据已清除');}
+</script>
+
+</body>
+</html>
