@@ -1,3 +1,9 @@
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
 # WorkBuddy内部文件
 .workbuddy/
 
@@ -5,9 +11,11 @@
 .DS_Store
 Thumbs.db
 Desktop.ini
+desktop.ini
 
 # 临时文件
 *.tmp
+*.temp
 *.bak
 *_check_csv_fields.py
 
